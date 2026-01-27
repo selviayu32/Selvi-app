@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/login_screen.dart'; // Import halaman login
+import 'screens/splash_screen.dart'; // 👈 TAMBAHKAN INI
 
 void main() async {
   // 1. Pastikan binding Flutter sudah siap
@@ -8,7 +8,7 @@ void main() async {
 
   // 2. Inisialisasi koneksi ke database Supabase
   await Supabase.initialize(
-    url: 'https://ythqqlnqgkrvqmulshvt.supabase.co', 
+    url: 'https://ythqqlnqgkrvqmulshvt.supabase.co',
     anonKey: 'sb_publishable_bv7hsKE_q8DOZQRA5EQ4Bg_F7Lftb9D',
   );
 
@@ -22,13 +22,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Rental Keyboard UKK',
+      title: 'Pinjam Keyboard',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      // 3. Langsung arahkan ke LoginScreen untuk mencoba 3 Role (Admin, Petugas, Siswa)
-      home: const LoginScreen(), 
+
+      // 👇 START APLIKASI DARI SPLASH
+      home: const SplashScreen(),
     );
   }
 }

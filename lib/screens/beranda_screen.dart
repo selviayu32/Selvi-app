@@ -17,7 +17,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text("Rental Keyboard",
+        title: const Text("Pinjam Keyboard",
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blueAccent,
         elevation: 0,
