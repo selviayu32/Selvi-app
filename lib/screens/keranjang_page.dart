@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart'; // Tambahkan intl di pubspec.yaml
+import 'package:intl/intl.dart';
+
+// TAMBAH IMPORT STATUS PAGE
+import 'status_page.dart';
 
 class KeranjangPage extends StatefulWidget {
   const KeranjangPage({super.key});
@@ -15,7 +18,6 @@ class _KeranjangPageState extends State<KeranjangPage> {
   DateTime tglKembali = DateTime.now().add(const Duration(days: 2));
   bool isLoading = false;
 
-  // Fungsi Pemilih Tanggal
   Future<void> _selectDate(BuildContext context, bool isPinjam) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -47,8 +49,13 @@ class _KeranjangPageState extends State<KeranjangPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.white),
-        title: const Text("Keranjang Peminjam", style: TextStyle(color: Colors.white)),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text("Keranjang Peminjam", 
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: isLoading 
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
@@ -56,11 +63,21 @@ class _KeranjangPageState extends State<KeranjangPage> {
               children: [
                 Expanded(
                   child: StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: supabase.from('keranjang').stream(primaryKey: ['id_keranjang']).eq('id_user', user.id),
+                    stream: supabase
+                        .from('keranjang')
+                        .stream(primaryKey: ['id_keranjang'])
+                        .eq('id_user', user.id),
                     builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                      final data = snapshot.data!;
-                      if (data.isEmpty) return const Center(child: Text("Keranjang Kosong"));
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final data = snapshot.data ?? [];
+                      if (data.isEmpty) {
+                        return const Center(
+                          child: Text("Keranjang Kosong", 
+                            style: TextStyle(color: Colors.white, fontSize: 16)),
+                        );
+                      }
 
                       return ListView.builder(
                         padding: const EdgeInsets.all(15),
@@ -68,19 +85,42 @@ class _KeranjangPageState extends State<KeranjangPage> {
                         itemBuilder: (context, index) {
                           final item = data[index];
                           return FutureBuilder(
-                            future: supabase.from('alat').select().eq('id_alat', item['id_alat']).single(),
+                            future: supabase
+                                .from('alat')
+                                .select()
+                                .eq('id_alat', item['id_alat'])
+                                .single(),
                             builder: (context, alatSnap) {
                               if (!alatSnap.hasData) return const SizedBox();
                               final alat = alatSnap.data!;
                               return Card(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15)),
                                 child: ListTile(
-                                  leading: Image.network(alat['image_url'], width: 50, errorBuilder: (c, e, s) => const Icon(Icons.keyboard)),
-                                  title: Text(alat['merk'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  subtitle: const Text("Kondisi Awal: Baik"),
+                                  contentPadding: const EdgeInsets.all(10),
+                                  leading: ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Image.network(
+                                      alat['image_url'] ?? '',
+                                      width: 60,
+                                      height: 60,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (c, e, s) => const Icon(Icons.keyboard, size: 40),
+                                    ),
+                                  ),
+                                  title: Text(alat['merk'] ?? 'Alat', 
+                                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: const Text("Kondisi Awal: Baik", 
+                                    style: TextStyle(color: Colors.green, fontSize: 12)),
                                   trailing: IconButton(
-                                    icon: const Icon(Icons.close, color: Colors.red),
-                                    onPressed: () => supabase.from('keranjang').delete().eq('id_keranjang', item['id_keranjang']),
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                    onPressed: () async {
+                                      await supabase
+                                          .from('keranjang')
+                                          .delete()
+                                          .eq('id_keranjang', item['id_keranjang']);
+                                    },
                                   ),
                                 ),
                               );
@@ -91,30 +131,37 @@ class _KeranjangPageState extends State<KeranjangPage> {
                     },
                   ),
                 ),
-                
-                // BOX PEMILIH TANGGAL (SESUAI FIGMA)
+
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(25),
                   decoration: const BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(35), 
+                      topRight: Radius.circular(35)
+                    ),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -5))
+                    ]
                   ),
                   child: Column(
                     children: [
                       _buildDateTile("Tanggal Pinjam", tglPinjam, () => _selectDate(context, true)),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       _buildDateTile("Rencana Kembali", tglKembali, () => _selectDate(context, false)),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 25),
                       SizedBox(
                         width: double.infinity,
-                        height: 50,
+                        height: 55,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                            backgroundColor: const Color(0xFF4CAF50),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                            elevation: 0,
                           ),
                           onPressed: _ajukanPermintaan,
-                          child: const Text("Ajukan Permintaan", style: TextStyle(fontSize: 18, color: Colors.white)),
+                          child: const Text("Ajukan Permintaan", 
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                         ),
                       ),
                     ],
@@ -129,19 +176,26 @@ class _KeranjangPageState extends State<KeranjangPage> {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(15),
+          color: Colors.grey.shade50,
+        ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_month, color: Color(0xFF5371A5)),
-            const SizedBox(width: 10),
+            const Icon(Icons.calendar_today_rounded, color: Color(0xFF5371A5), size: 20),
+            const SizedBox(width: 15),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                Text(DateFormat('EEEE, d MMMM yyyy').format(date)),
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11, color: Colors.grey)),
+                Text(DateFormat('EEEE, d MMMM yyyy').format(date), 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               ],
             ),
+            const Spacer(),
+            const Icon(Icons.edit, size: 16, color: Colors.grey),
           ],
         ),
       ),
@@ -149,10 +203,17 @@ class _KeranjangPageState extends State<KeranjangPage> {
   }
 
   Future<void> _ajukanPermintaan() async {
+    final user = supabase.auth.currentUser;
+    final keranjangCek = await supabase.from('keranjang').select().eq('id_user', user!.id);
+
+    if (keranjangCek.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Keranjang Anda masih kosong!")));
+      return;
+    }
+
     setState(() => isLoading = true);
     try {
-      final user = supabase.auth.currentUser;
-      final keranjangData = await supabase.from('keranjang').select().eq('id_user', user!.id);
+      final keranjangData = await supabase.from('keranjang').select().eq('id_user', user.id);
 
       for (var item in keranjangData) {
         await supabase.from('permintaan').insert({
@@ -161,23 +222,28 @@ class _KeranjangPageState extends State<KeranjangPage> {
           'status': 'menunggu',
           'tgl_pinjam': tglPinjam.toIso8601String(),
           'tgl_kembali_rencana': tglKembali.toIso8601String(),
+          'created_at': DateTime.now().toIso8601String(),
         });
       }
+
       await supabase.from('keranjang').delete().eq('id_user', user.id);
-      
-      // PINDAH KE HALAMAN SUKSES SESUAI FIGMA
+
       if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SuksesPage()));
+        Navigator.pushAndRemoveUntil(
+          context, 
+          MaterialPageRoute(builder: (context) => const SuksesPage()),
+          (route) => false
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Terjadi kesalahan: $e")));
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 }
 
-// HALAMAN SUKSES (PESANAN DIKIRIM)
+// ================= HALAMAN SUKSES =================
 class SuksesPage extends StatelessWidget {
   const SuksesPage({super.key});
 
@@ -185,28 +251,45 @@ class SuksesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFAECBFA),
-      body: Center(
+      body: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 30),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.check, size: 60, color: Colors.green),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: const Icon(Icons.check_circle_rounded, size: 100, color: Color(0xFF4CAF50)),
             ),
-            const SizedBox(height: 20),
-            const Text("Pesanan Di Kirim!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                "Permintaan Peminjamanmu telah di kirim ke petugas. Silahkan menunggu konfirmasi",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white),
+            const SizedBox(height: 30),
+            const Text("Pesanan Di Kirim!", 
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 15),
+            const Text(
+              "Permintaan Peminjamanmu telah di kirim ke petugas. Silahkan menunggu konfirmasi",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 15, height: 1.5),
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: 200,
+              height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF5371A5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                onPressed: () {
+                  // 🔥 BUKA STATUS PAGE
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StatusPage()),
+                  );
+                },
+                child: const Text("Lihat Status", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Lihat Status"),
             )
           ],
         ),

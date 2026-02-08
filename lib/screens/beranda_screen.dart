@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'input_alat_screen.dart';
+import 'keranjang_page.dart'; // Import halaman keranjang kamu
 import '../services/alat_service.dart';
 
 class BerandaScreen extends StatefulWidget {
@@ -11,23 +13,63 @@ class BerandaScreen extends StatefulWidget {
 
 class _BerandaScreenState extends State<BerandaScreen> {
   final alatService = AlatService();
+  final supabase = Supabase.instance.client;
+
+  // Fungsi Tambah ke Keranjang
+  Future<void> _tambahKeKeranjang(Map<String, dynamic> alat) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await supabase.from('keranjang').insert({
+        'id_user': user.id,
+        'id_alat': alat['id_alat'],
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("${alat['merk']} berhasil ditambah ke keranjang"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFAECBFA), // Sesuaikan warna background Figma
       appBar: AppBar(
-        title: const Text("Pinjam Keyboard",
+        title: const Text("Katalog Keyboard",
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: const Color(0xFF5371A5), // Warna biru tua toolbar
         elevation: 0,
+        leading: IconButton(
+            onPressed: () async {
+              await supabase.auth.signOut();
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/login');
+              }
+            },
+            icon: const Icon(Icons.logout, color: Colors.white)),
         actions: [
           IconButton(
-              onPressed: () {
-                // Tambahkan fungsi logout di sini jika perlu
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.logout, color: Colors.white))
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const KeranjangPage()),
+              );
+            },
+            icon: const Icon(Icons.shopping_cart, color: Colors.white),
+          ),
         ],
       ),
       body: Column(
@@ -59,8 +101,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   return Center(child: Text("Error: ${snapshot.error}"));
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
-                      child: Text("Belum ada data alat di database."));
+                  return const Center(child: Text("Data keyboard tidak ditemukan."));
                 }
 
                 final daftarAlat = snapshot.data!;
@@ -68,117 +109,83 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 return GridView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, // 2 kolom menyamping
-                    childAspectRatio: 0.7, // Disesuaikan agar muat gambar + teks
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.75,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                   ),
                   itemCount: daftarAlat.length,
                   itemBuilder: (context, index) {
                     final alat = daftarAlat[index];
+                    bool isTersedia = alat['status'] == 'tersedia';
+
                     return Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(15),
-                        boxShadow: [
+                        boxShadow: const [
                           BoxShadow(
                               color: Colors.black12,
                               blurRadius: 4,
-                              offset: const Offset(0, 2))
+                              offset: Offset(0, 2))
                         ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // --- BAGIAN GAMBAR ---
                           Expanded(
                             child: ClipRRect(
                               borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(15)),
-                              child: alat['image_url'] != null &&
-                                      alat['image_url'].toString().isNotEmpty
+                              child: alat['image_url'] != null
                                   ? Image.network(
                                       alat['image_url'],
                                       width: double.infinity,
                                       fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              Container(
-                                        color: Colors.blue[50],
-                                        child: const Icon(Icons.broken_image,
-                                            size: 40, color: Colors.grey),
-                                      ),
+                                      errorBuilder: (c, e, s) => const Icon(
+                                          Icons.keyboard,
+                                          size: 50),
                                     )
-                                  : Container(
-                                      width: double.infinity,
-                                      color: Colors.blue[50],
-                                      child: const Icon(Icons.keyboard,
-                                          size: 50, color: Colors.blueAccent),
-                                    ),
+                                  : const Center(child: Icon(Icons.keyboard)),
                             ),
                           ),
-
-                          // --- INFORMASI KEYBOARD ---
                           Padding(
-                            padding: const EdgeInsets.all(10.0),
+                            padding: const EdgeInsets.all(8.0),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   alat['merk'] ?? 'Keyboard',
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14),
+                                      fontWeight: FontWeight.bold),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 4),
                                 Text(
-                                  alat['kode_aset'] ?? '-',
-                                  style: const TextStyle(
-                                      color: Colors.blueAccent,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(Icons.circle,
-                                        size: 8,
-                                        color: alat['status'] == 'tersedia'
-                                            ? Colors.green
-                                            : Colors.red),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      alat['status'] ?? 'N/A',
-                                      style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 11),
-                                    ),
-                                  ],
+                                  alat['status'] ?? 'N/A',
+                                  style: TextStyle(
+                                      color: isTersedia
+                                          ? Colors.green
+                                          : Colors.red,
+                                      fontSize: 12),
                                 ),
                               ],
                             ),
                           ),
-
-                          // --- TOMBOL AKSI ---
-                          const Divider(height: 1),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              IconButton(
-                                  onPressed: () {
-                                    // Fungsi Edit
-                                  },
-                                  icon: const Icon(Icons.edit_note,
-                                      color: Colors.blue, size: 22)),
-                              IconButton(
-                                  onPressed: () {
-                                    // Fungsi Hapus
-                                  },
-                                  icon: const Icon(Icons.delete_outline,
-                                      color: Colors.red, size: 22)),
-                            ],
+                          // --- TOMBOL TAMBAH KE KERANJANG ---
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isTersedia ? const Color(0xFF5371A5) : Colors.grey,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                onPressed: isTersedia ? () => _tambahKeKeranjang(alat) : null,
+                                child: const Icon(Icons.add_shopping_cart, size: 18, color: Colors.white),
+                              ),
+                            ),
                           )
                         ],
                       ),
@@ -190,6 +197,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
           ),
         ],
       ),
+      // Tombol Tambah Alat hanya untuk Admin/Petugas (Opsional)
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -197,7 +205,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
             MaterialPageRoute(builder: (context) => const InputAlatScreen()),
           ).then((_) => setState(() {}));
         },
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: const Color(0xFF5371A5),
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
