@@ -3,12 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile_screen.dart';
 import 'keyboard_screen.dart';
 import 'keranjang_page.dart';
-import 'permintaan_page.dart';
 import 'data_petugas_screen.dart';
-// 1. TAMBAH IMPORT STATUS PAGE
 import 'status_page.dart';
-
-// ✅ TAMBAHAN: import halaman konfirmasi petugas (yang ada Setujui/Tolak)
 import 'konfirmasi_petugas_page.dart';
 
 // Warna Tema Figma
@@ -35,19 +31,21 @@ class AdminDashboard extends StatelessWidget {
             StreamBuilder(
               stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
               builder: (context, snapshot) {
-                final total = snapshot.hasData ? snapshot.data!.length.toString() : "0";
+                final total =
+                    snapshot.hasData ? snapshot.data!.length.toString() : "0";
                 return _buildStatCard("Total Keyboard", total);
               },
             ),
             const SizedBox(height: 25),
-
             const Text(
               "Manajemen Data",
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 18, color: primaryBlue),
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: primaryBlue,
+              ),
             ),
             const SizedBox(height: 15),
-
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
@@ -105,7 +103,10 @@ class PetugasDashboard extends StatelessWidget {
             const Text(
               "Ringkasan Data",
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 18, color: primaryBlue),
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: primaryBlue,
+              ),
             ),
             const SizedBox(height: 15),
             Row(
@@ -114,8 +115,15 @@ class PetugasDashboard extends StatelessWidget {
                   child: StreamBuilder(
                     stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
                     builder: (context, snapshot) {
-                      final total = snapshot.hasData ? snapshot.data!.length.toString() : "0";
-                      return _buildCompactStatCard("Total Alat", total, Icons.keyboard, Colors.orange);
+                      final total = snapshot.hasData
+                          ? snapshot.data!.length.toString()
+                          : "0";
+                      return _buildCompactStatCard(
+                        "Total Alat",
+                        total,
+                        Icons.keyboard,
+                        Colors.orange,
+                      );
                     },
                   ),
                 ),
@@ -127,8 +135,15 @@ class PetugasDashboard extends StatelessWidget {
                         .stream(primaryKey: ['id_permintaan'])
                         .eq('status', 'menunggu'),
                     builder: (context, snapshot) {
-                      final pending = snapshot.hasData ? snapshot.data!.length.toString() : "0";
-                      return _buildCompactStatCard("Pending", pending, Icons.pending_actions, Colors.redAccent);
+                      final pending = snapshot.hasData
+                          ? snapshot.data!.length.toString()
+                          : "0";
+                      return _buildCompactStatCard(
+                        "Pending",
+                        pending,
+                        Icons.pending_actions,
+                        Colors.redAccent,
+                      );
                     },
                   ),
                 ),
@@ -138,7 +153,10 @@ class PetugasDashboard extends StatelessWidget {
             const Text(
               "Menu Utama",
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 18, color: primaryBlue),
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: primaryBlue,
+              ),
             ),
             const SizedBox(height: 15),
             GridView.count(
@@ -154,7 +172,6 @@ class PetugasDashboard extends StatelessWidget {
                   "Permintaan",
                   Icons.assignment_turned_in,
                   "Cek Peminjaman",
-                  // ✅ UPDATE: buka halaman KonfirmasiPetugasPage, bukan PermintaanPage
                   const KonfirmasiPetugasPage(),
                 ),
                 _buildModernMenuCard(
@@ -187,31 +204,60 @@ class PetugasDashboard extends StatelessWidget {
   }
 
   // Helper Widgets for Petugas
-  Widget _buildCompactStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildCompactStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+          )
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color, size: 28),
           const SizedBox(height: 10),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primaryBlue)),
-          Text(title, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
+            ),
+          ),
+          Text(
+            title,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildModernMenuCard(BuildContext context, String title, IconData icon, String subtitle, Widget? target) {
+  Widget _buildModernMenuCard(
+    BuildContext context,
+    String title,
+    IconData icon,
+    String subtitle,
+    Widget? target,
+  ) {
     return InkWell(
       onTap: () {
         if (target != null) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => target));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => target),
+          );
         }
       },
       child: Container(
@@ -219,19 +265,39 @@ class PetugasDashboard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+            )
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(
-              backgroundColor: backgroundBlue.withOpacity(0.2),
+              backgroundColor: backgroundBlue.withValues(alpha: 0.2),
               child: Icon(icon, color: primaryBlue),
             ),
             const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: primaryBlue)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
+            const Text(
+              "",
+              style: TextStyle(fontSize: 10, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -259,7 +325,9 @@ class PeminjamDashboard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 10)
+                ],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
@@ -271,13 +339,14 @@ class PeminjamDashboard extends StatelessWidget {
                 ),
               ),
             ),
-
             const SizedBox(height: 25),
-
             const Text(
               "Aksi Cepat",
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 18, color: primaryBlue),
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: primaryBlue,
+              ),
             ),
             const SizedBox(height: 15),
 
@@ -289,7 +358,7 @@ class PeminjamDashboard extends StatelessWidget {
               KeyboardScreen(role: "peminjam"),
             ),
 
-            // 2. MENU STATUS BARU
+            // MENU STATUS
             const SizedBox(height: 12),
             _buildLongMenu(
               context,
@@ -302,7 +371,10 @@ class PeminjamDashboard extends StatelessWidget {
             const Text(
               "Status Peminjaman Terkini",
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 18, color: primaryBlue),
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: primaryBlue,
+              ),
             ),
             const SizedBox(height: 15),
             _buildStatusRealtime(),
@@ -339,15 +411,25 @@ class PeminjamDashboard extends StatelessWidget {
 
 // ================= HELPER WIDGETS =================
 
-AppBar _buildAppBar(BuildContext context, String title, String role, String nama) {
+AppBar _buildAppBar(
+  BuildContext context,
+  String title,
+  String role,
+  String nama,
+) {
   final user = supabase.auth.currentUser;
 
   return AppBar(
     backgroundColor: Colors.transparent,
     elevation: 0,
-    title: Text(title,
-        style: const TextStyle(
-            fontWeight: FontWeight.bold, color: Colors.white, fontSize: 22)),
+    title: Text(
+      title,
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+        fontSize: 22,
+      ),
+    ),
     actions: [
       if (role == "peminjam")
         StreamBuilder(
@@ -357,9 +439,17 @@ AppBar _buildAppBar(BuildContext context, String title, String role, String nama
               .eq('id_user', user?.id ?? ''),
           builder: (context, snapshot) {
             int count = snapshot.hasData ? snapshot.data!.length : 0;
-            return _buildBadgeIcon(context, Icons.shopping_cart, count, () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const KeranjangPage()));
-            });
+            return _buildBadgeIcon(
+              context,
+              Icons.shopping_cart,
+              count,
+              () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const KeranjangPage()),
+                );
+              },
+            );
           },
         ),
       if (role == "petugas")
@@ -370,10 +460,18 @@ AppBar _buildAppBar(BuildContext context, String title, String role, String nama
               .eq('status', 'menunggu'),
           builder: (context, snapshot) {
             int count = snapshot.hasData ? snapshot.data!.length : 0;
-            return _buildBadgeIcon(context, Icons.notifications, count, () {
-              // ✅ UPDATE: lonceng juga buka KonfirmasiPetugasPage
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const KonfirmasiPetugasPage()));
-            });
+            return _buildBadgeIcon(
+              context,
+              Icons.notifications,
+              count,
+              () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const KonfirmasiPetugasPage()),
+                );
+              },
+            );
           },
         ),
       Padding(
@@ -384,7 +482,8 @@ AppBar _buildAppBar(BuildContext context, String title, String role, String nama
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => ProfileScreen(role: role, nama: nama)),
+                builder: (context) => ProfileScreen(role: role, nama: nama),
+              ),
             );
           },
         ),
@@ -393,10 +492,18 @@ AppBar _buildAppBar(BuildContext context, String title, String role, String nama
   );
 }
 
-Widget _buildBadgeIcon(BuildContext context, IconData icon, int count, VoidCallback onTap) {
+Widget _buildBadgeIcon(
+  BuildContext context,
+  IconData icon,
+  int count,
+  VoidCallback onTap,
+) {
   return Stack(
     children: [
-      IconButton(icon: Icon(icon, color: Colors.white), onPressed: onTap),
+      IconButton(
+        icon: Icon(icon, color: Colors.white),
+        onPressed: onTap,
+      ),
       if (count > 0)
         Positioned(
           right: 8,
@@ -420,74 +527,121 @@ Widget _buildStatCard(String title, String value) {
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 10,
+        )
+      ],
     ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title,
-            style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600, color: primaryBlue)),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 24, fontWeight: FontWeight.bold, color: primaryBlue)),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: primaryBlue,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: primaryBlue,
+          ),
+        ),
       ],
     ),
   );
 }
 
-Widget _buildMenuCard(BuildContext context, String title, IconData icon, Widget? targetScreen) {
+Widget _buildMenuCard(
+  BuildContext context,
+  String title,
+  IconData icon,
+  Widget? targetScreen,
+) {
   return InkWell(
     onTap: () {
       if (targetScreen != null) {
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => targetScreen));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => targetScreen),
+        );
       }
     },
     child: Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+          )
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircleAvatar(
-            backgroundColor: backgroundBlue.withOpacity(0.3),
+            backgroundColor: backgroundBlue.withValues(alpha: 0.3),
             radius: 30,
             child: Icon(icon, size: 35, color: primaryBlue),
           ),
           const SizedBox(height: 12),
-          Text(title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: primaryBlue)),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
+            ),
+          ),
         ],
       ),
     ),
   );
 }
 
-Widget _buildLongMenu(BuildContext context, String title, IconData icon, Widget? targetScreen) {
+Widget _buildLongMenu(
+  BuildContext context,
+  String title,
+  IconData icon,
+  Widget? targetScreen,
+) {
   return Container(
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(15),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 5,
+        )
+      ],
     ),
     child: ListTile(
       onTap: () {
         if (targetScreen != null) {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => targetScreen));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => targetScreen),
+          );
         }
       },
       leading: Icon(icon, color: primaryBlue),
-      title: Text(title,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold, color: primaryBlue)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: primaryBlue,
+        ),
+      ),
       trailing: const Icon(Icons.chevron_right, color: primaryBlue),
     ),
   );
@@ -499,38 +653,53 @@ Widget _buildStatusCard(String item, String status, String date) {
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 10,
+        )
+      ],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(item,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 16, color: primaryBlue)),
+        Text(
+          item,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: primaryBlue,
+          ),
+        ),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
               decoration: BoxDecoration(
-                  color: status == "DISETUJUI" ? Colors.green : Colors.orangeAccent,
-                  borderRadius: BorderRadius.circular(20)),
-              child: Text(status,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12)),
+                color: status == "DISETUJUI"
+                    ? Colors.green
+                    : Colors.orangeAccent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                status,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
             ),
             Row(
               children: [
-                const Icon(Icons.calendar_today,
-                    size: 14, color: Colors.grey),
+                const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
                 const SizedBox(width: 5),
-                Text(date,
-                    style:
-                        const TextStyle(color: Colors.grey, fontSize: 13)),
+                Text(
+                  date,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
               ],
             )
           ],

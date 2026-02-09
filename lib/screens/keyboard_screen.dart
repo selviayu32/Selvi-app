@@ -19,7 +19,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String userRole = widget.role; // AMBIL ROLE DARI DASHBOARD
+    String userRole = widget.role;
 
     return Scaffold(
       backgroundColor: const Color(0xFFAECBFA),
@@ -35,7 +35,6 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-
       body: Column(
         children: [
           // SEARCH BAR
@@ -58,7 +57,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
             ),
           ),
 
-          // FILTER
+          // FILTER TABS
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Row(
@@ -73,28 +72,33 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
 
           const SizedBox(height: 10),
 
-          // LIST DATA
+          // LIST DATA MENGGUNAKAN STREAM
           Expanded(
-            child: StreamBuilder(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text("Terjadi kesalahan: ${snapshot.error}"));
+                }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
+                // UPDATE: Logika Filter yang lebih aman
                 final filteredData = snapshot.data!.where((item) {
-                  final matchesCategory = item['kode_aset']
-                      .toString()
-                      .startsWith(selectedCategory);
-                  final matchesSearch = item['merk']
-                      .toString()
-                      .toLowerCase()
-                      .contains(searchQuery);
+                  final String kodeAset = (item['kode_aset'] ?? "").toString().toUpperCase();
+                  final String merk = (item['merk'] ?? "").toString().toLowerCase();
+
+                  final matchesCategory = kodeAset.startsWith(selectedCategory.toUpperCase());
+                  final matchesSearch = merk.contains(searchQuery);
+
                   return matchesCategory && matchesSearch;
                 }).toList();
 
                 if (filteredData.isEmpty) {
-                  return const Center(child: Text("Produk tidak ditemukan"));
+                  return const Center(
+                    child: Text("Produk tidak ditemukan", style: TextStyle(color: Colors.white)),
+                  );
                 }
 
                 return ListView.builder(
@@ -104,9 +108,9 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                     final item = filteredData[index];
                     return _buildProductCard(
                       item['id_alat'],
-                      item['merk'],
-                      item['status'],
-                      item['image_url'],
+                      item['merk'] ?? "Tanpa Merk",
+                      item['status'] ?? "Tidak Diketahui",
+                      item['image_url'] ?? "",
                       userRole,
                     );
                   },
@@ -117,7 +121,6 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
         ],
       ),
 
-      // FAB ONLY ADMIN
       floatingActionButton: userRole == "admin"
           ? FloatingActionButton(
               backgroundColor: const Color(0xFF5371A5),
@@ -125,8 +128,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const AddKeyboardScreen()),
+                  MaterialPageRoute(builder: (context) => const AddKeyboardScreen()),
                 );
               },
             )
@@ -134,7 +136,6 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     );
   }
 
-  // FILTER TAB
   Widget _buildFilterTab(String label, String code) {
     bool isSelected = selectedCategory == code;
     return GestureDetector(
@@ -156,9 +157,8 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     );
   }
 
-  // CARD PRODUK
   Widget _buildProductCard(
-      int id, String name, String status, String imageUrl, String userRole) {
+      dynamic id, String name, String status, String imageUrl, String userRole) {
     bool isAvailable = status.toLowerCase() == 'tersedia';
 
     return Container(
@@ -167,77 +167,59 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2)),
+        ],
       ),
       child: Row(
         children: [
-          // IMAGE
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              imageUrl,
-              width: 100,
-              height: 70,
-              fit: BoxFit.contain,
-              errorBuilder: (c, e, s) =>
-                  const Icon(Icons.image_not_supported, size: 50),
-            ),
+            child: imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    width: 100,
+                    height: 70,
+                    fit: BoxFit.cover,
+                    errorBuilder: (c, e, s) => const Icon(Icons.image_not_supported, size: 50),
+                  )
+                : const Icon(Icons.image, size: 50),
           ),
-
           const SizedBox(width: 15),
-
-          // INFO
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-
-                const SizedBox(height: 10),
-
+                Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 5),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: isAvailable ? Colors.green : Colors.orange,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     status,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ),
-
-                const SizedBox(height: 8),
-
-                // BUTTON ROLE (ICON SESUAI DESAIN)
+                const SizedBox(height: 5),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // PEMINJAM → ICON KERANJANG
                     if (userRole == "peminjam" && isAvailable)
                       IconButton(
-                        icon: const Icon(Icons.shopping_cart,
-                            color: Colors.blue, size: 26),
+                        icon: const Icon(Icons.shopping_cart, color: Colors.blue, size: 24),
                         onPressed: () => _addToCart(id),
                       ),
-
-                    // PETUGAS → ICON NOTIF
                     if (userRole == "petugas")
                       IconButton(
-                        icon: const Icon(Icons.notifications_active,
-                            color: Colors.orange, size: 26),
+                        icon: const Icon(Icons.notifications_active, color: Colors.orange, size: 24),
                         onPressed: () => _approveRequest(id),
                       ),
-
-                    // ADMIN → DELETE
                     if (userRole == "admin")
                       IconButton(
-                        icon:
-                            const Icon(Icons.delete, color: Colors.red, size: 26),
+                        icon: const Icon(Icons.delete, color: Colors.red, size: 24),
                         onPressed: () => _deleteKeyboard(id),
                       ),
                   ],
@@ -250,26 +232,39 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     );
   }
 
-  // ================= DATABASE FUNCTION =================
+  // ================= DATABASE FUNCTIONS =================
 
-  Future<void> _addToCart(int idAlat) async {
-    await supabase.from('keranjang').insert({
-      'id_alat': idAlat,
-      'id_user': supabase.auth.currentUser!.id,
-    });
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text("Masuk keranjang")));
+  Future<void> _addToCart(dynamic idAlat) async {
+    try {
+      await supabase.from('keranjang').insert({
+        'id_alat': idAlat,
+        'id_user': supabase.auth.currentUser!.id,
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Masuk keranjang")));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e")));
+    }
   }
 
-  Future<void> _approveRequest(int idAlat) async {
-    await supabase
-        .from('permintaan')
-        .update({'status': 'disetujui'})
-        .eq('id_alat', idAlat);
+  Future<void> _approveRequest(dynamic idAlat) async {
+    await supabase.from('permintaan').update({'status': 'disetujui'}).eq('id_alat', idAlat);
   }
 
-  Future<void> _deleteKeyboard(int idAlat) async {
-    await supabase.from('alat').delete().eq('id_alat', idAlat);
+  Future<void> _deleteKeyboard(dynamic idAlat) async {
+    final bool? confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Hapus?"),
+        content: const Text("Data ini akan dihapus permanen."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Batal")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Hapus", style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await supabase.from('alat').delete().eq('id_alat', idAlat);
+    }
   }
 }
