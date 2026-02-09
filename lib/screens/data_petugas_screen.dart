@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Warna Tema Konsisten
+// ================= WARNA TEMA =================
 const Color primaryBlue = Color(0xFF5371A5);
 const Color backgroundBlue = Color(0xFFAECBFA);
 
+// Supabase client
 final supabase = Supabase.instance.client;
 
 class DataPetugasScreen extends StatelessWidget {
   const DataPetugasScreen({super.key});
 
-  // ================= 1. FUNGSI EDIT PROFIL (MODAL) =================
+  // ================= 1. EDIT PROFIL =================
   void _showEditSheet(BuildContext context) {
     final nameController = TextEditingController(text: "Selvi");
     final nipController = TextEditingController(text: "1012007");
@@ -34,10 +35,11 @@ class DataPetugasScreen extends StatelessWidget {
           children: [
             const Text(
               "Perbarui Profil Petugas",
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold, color: primaryBlue),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryBlue),
             ),
             const SizedBox(height: 20),
+
+            // Input Nama
             TextField(
               controller: nameController,
               decoration: InputDecoration(
@@ -46,6 +48,8 @@ class DataPetugasScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 15),
+
+            // Input NIP
             TextField(
               controller: nipController,
               decoration: InputDecoration(
@@ -54,6 +58,8 @@ class DataPetugasScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 25),
+
+            // Tombol Simpan
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -62,8 +68,7 @@ class DataPetugasScreen extends StatelessWidget {
                   backgroundColor: primaryBlue,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                onPressed: () {
-                  // Tambahkan logika update Supabase di sini jika diperlukan
+                onPressed: () async {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Profil berhasil diperbarui!")),
@@ -79,7 +84,7 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
-  // ================= 2. FUNGSI HUBUNGI (PESAN INTERNAL) =================
+  // ================= 2. HUBUNGI PETUGAS =================
   void _showHubungiDialog(BuildContext context) {
     final pesanController = TextEditingController();
 
@@ -87,42 +92,47 @@ class DataPetugasScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: const Text("Kirim Pesan ke Petugas",
-            style: TextStyle(fontWeight: FontWeight.bold, color: primaryBlue)),
+        title: const Text(
+          "Kirim Pesan ke Petugas",
+          style: TextStyle(fontWeight: FontWeight.bold, color: primaryBlue),
+        ),
         content: TextField(
           controller: pesanController,
           maxLines: 3,
           decoration: InputDecoration(
             hintText: "Tulis pesan instruksi...",
             filled: true,
-            fillColor: backgroundBlue.withValues(alpha: 0.1),
+            fillColor: backgroundBlue.withOpacity(0.1), // FIX ERROR
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Batal", style: TextStyle(color: Colors.grey))),
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             onPressed: () async {
               if (pesanController.text.isNotEmpty) {
                 try {
-                  // Pastikan kamu sudah punya tabel 'pesan' di Supabase
                   await supabase.from('pesan').insert({
                     'isi_pesan': pesanController.text,
-                    'penerima_id': 'ID_USER_PETUGAS', // Ganti dengan ID asli dari Auth Supabase
+                    'penerima_id': 'ID_USER_PETUGAS', // nanti ganti auth id
                     'is_read': false,
                   });
+
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Pesan terkirim ke Dashboard Petugas!")),
+                    const SnackBar(content: Text("Pesan terkirim ke Petugas!")),
                   );
                 } catch (e) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Error: Pastikan tabel pesan sudah ada")),
+                    SnackBar(content: Text("Error kirim pesan: $e")),
                   );
                 }
               }
@@ -134,6 +144,7 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
+  // ================= UI UTAMA =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -148,8 +159,7 @@ class DataPetugasScreen extends StatelessWidget {
         ),
         title: const Text(
           "Detail Petugas",
-          style: TextStyle(
-              fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20),
         ),
       ),
       body: SingleChildScrollView(
@@ -163,44 +173,40 @@ class DataPetugasScreen extends StatelessWidget {
               status: "Aktif",
             ),
             const SizedBox(height: 25),
+
             const Text(
               "Informasi Kontak & Lokasi",
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: primaryBlue),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryBlue),
             ),
             const SizedBox(height: 12),
+
             _buildDetailInformationCard(
               nip: "1012007",
               email: "selvi2@gmail.com",
               phone: "+62 856 47588200",
               lokasi: "Lantai 4 Kampus Brantas",
             ),
+
             const SizedBox(height: 30),
             const Text(
               "Aksi Admin",
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: primaryBlue),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryBlue),
             ),
             const SizedBox(height: 12),
+
             Row(
               children: [
                 Expanded(
                   child: InkWell(
                     onTap: () => _showEditSheet(context),
-                    child: _buildActionButton(Icons.edit_note_rounded,
-                        "Edit Profil", Colors.white, primaryBlue),
+                    child: _buildActionButton(Icons.edit_note_rounded, "Edit Profil", Colors.white, primaryBlue),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: InkWell(
                     onTap: () => _showHubungiDialog(context),
-                    child: _buildActionButton(
-                        Icons.chat_rounded, "Hubungi", Colors.green, Colors.white),
+                    child: _buildActionButton(Icons.chat_rounded, "Hubungi", Colors.green, Colors.white),
                   ),
                 ),
               ],
@@ -211,8 +217,8 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMainProfileCard(
-      {required String nama, required String role, required String status}) {
+  // ================= CARD PROFIL =================
+  Widget _buildMainProfileCard({required String nama, required String role, required String status}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
@@ -221,9 +227,10 @@ class DataPetugasScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 10))
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          )
         ],
       ),
       child: Column(
@@ -250,31 +257,23 @@ class DataPetugasScreen extends StatelessWidget {
           const SizedBox(height: 15),
           Text(
             nama,
-            style: const TextStyle(
-                fontSize: 24, fontWeight: FontWeight.bold, color: primaryBlue),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryBlue),
           ),
           const SizedBox(height: 5),
           Text(
             role,
-            style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.5),
+            style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 15),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             decoration: BoxDecoration(
-              color: primaryBlue.withValues(alpha: 0.1),
+              color: primaryBlue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(15),
             ),
             child: Text(
               status,
-              style: const TextStyle(
-                  color: primaryBlue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12),
+              style: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold, fontSize: 12),
             ),
           )
         ],
@@ -282,6 +281,7 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
+  // ================= DETAIL INFO =================
   Widget _buildDetailInformationCard({
     required String nip,
     required String email,
@@ -296,16 +296,17 @@ class DataPetugasScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 15,
-              offset: const Offset(0, 5))
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          )
         ],
       ),
       child: Column(
         children: [
           _buildInfoTile(Icons.badge_rounded, "NIP", nip),
           const Divider(height: 25, thickness: 0.5),
-          _buildInfoTile(Icons.alternate_email_rounded, "Email Address", email),
+          _buildInfoTile(Icons.alternate_email_rounded, "Email", email),
           const Divider(height: 25, thickness: 0.5),
           _buildInfoTile(Icons.phone_iphone_rounded, "Nomor Telepon", phone),
           const Divider(height: 25, thickness: 0.5),
@@ -321,7 +322,7 @@ class DataPetugasScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: backgroundBlue.withValues(alpha: 0.2),
+            color: backgroundBlue.withOpacity(0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, size: 22, color: primaryBlue),
@@ -331,17 +332,9 @@ class DataPetugasScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500)),
+              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
               const SizedBox(height: 2),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87)),
+              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -349,22 +342,21 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton(
-      IconData icon, String label, Color bgColor, Color textColor) {
+  // ================= TOMBOL AKSI =================
+  Widget _buildActionButton(IconData icon, String label, Color bgColor, Color textColor) {
     return Container(
       height: 55,
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(18),
-        border: bgColor == Colors.white
-            ? Border.all(color: primaryBlue.withValues(alpha: 0.3))
-            : null,
+        border: bgColor == Colors.white ? Border.all(color: primaryBlue.withOpacity(0.3)) : null,
         boxShadow: bgColor != Colors.white
             ? [
                 BoxShadow(
-                    color: bgColor.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5))
+                  color: bgColor.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                )
               ]
             : null,
       ),
@@ -373,9 +365,7 @@ class DataPetugasScreen extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: textColor),
           const SizedBox(width: 10),
-          Text(label,
-              style: TextStyle(
-                  color: textColor, fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(label, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
         ],
       ),
     );

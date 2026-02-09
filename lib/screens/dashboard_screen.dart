@@ -6,7 +6,10 @@ import 'keranjang_page.dart';
 import 'permintaan_page.dart';
 import 'data_petugas_screen.dart';
 // 1. TAMBAH IMPORT STATUS PAGE
-import 'status_page.dart'; 
+import 'status_page.dart';
+
+// ✅ TAMBAHAN: import halaman konfirmasi petugas (yang ada Setujui/Tolak)
+import 'konfirmasi_petugas_page.dart';
 
 // Warna Tema Figma
 const Color primaryBlue = Color(0xFF5371A5);
@@ -151,7 +154,8 @@ class PetugasDashboard extends StatelessWidget {
                   "Permintaan",
                   Icons.assignment_turned_in,
                   "Cek Peminjaman",
-                  const PermintaanPage(),
+                  // ✅ UPDATE: buka halaman KonfirmasiPetugasPage, bukan PermintaanPage
+                  const KonfirmasiPetugasPage(),
                 ),
                 _buildModernMenuCard(
                   context,
@@ -367,7 +371,8 @@ AppBar _buildAppBar(BuildContext context, String title, String role, String nama
           builder: (context, snapshot) {
             int count = snapshot.hasData ? snapshot.data!.length : 0;
             return _buildBadgeIcon(context, Icons.notifications, count, () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const PermintaanPage()));
+              // ✅ UPDATE: lonceng juga buka KonfirmasiPetugasPage
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const KonfirmasiPetugasPage()));
             });
           },
         ),
