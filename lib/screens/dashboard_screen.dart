@@ -7,8 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile_screen.dart';
 // IMPORT HALAMAN PROFILE (DIPAKAI SAAT KLIK ICON PROFILE)
 
-import 'keyboard_screen.dart';
-// IMPORT HALAMAN DAFTAR KEYBOARD/ALAT
+// ✅ FIX: GANTI IMPORT INI BIAR KeyboardScreen KEBACA PASTI
+import 'package:flutter_application_1/screens/keyboard_screen.dart';
+// SEBELUMNYA: import 'keyboard_screen.dart';
 
 import 'keranjang_page.dart';
 // IMPORT HALAMAN KERANJANG (UNTUK ROLE PEMINJAM)
@@ -21,6 +22,9 @@ import 'status_page.dart';
 
 import 'konfirmasi_petugas_page.dart';
 // IMPORT HALAMAN KONFIRMASI PETUGAS (NOTIF PERMINTAAN MENUNGGU)
+
+// ✅ TAMBAHAN: HALAMAN PENGEMBALIAN PEMINJAM
+import 'pengembalian_page.dart';
 
 // =====================================================
 // KONFIGURASI WARNA UTAMA APLIKASI (BIAR KONSISTEN)
@@ -65,7 +69,7 @@ class AdminDashboard extends StatelessWidget {
             // =========================
             StreamBuilder(
               // STREAM REALTIME: AMBIL DATA DARI TABEL 'alat'
-              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),//ARRAY ID ALAT DAN STRAMBUILDER//
+              stream: supabase.from('alat').stream(primaryKey: ['id_alat']), //ARRAY ID ALAT DAN STRAMBUILDER//
               builder: (context, snapshot) {
                 // HITUNG JUMLAH DATA SAAT ADA, KALAU BELUM ADA -> 0
                 final total =
@@ -276,6 +280,47 @@ class PetugasDashboard extends StatelessWidget {
                 ),
               ],
             ),
+
+            const SizedBox(height: 25),
+
+            // =====================================================
+            // TAMBAHAN: LIST PENGEMBALIAN TERBARU (REALTIME)
+            // =====================================================
+            const Text(
+              "Aktivitas Terkini",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 10),
+            StreamBuilder(
+              stream: supabase
+                  .from('permintaan')
+                  .stream(primaryKey: ['id_permintaan'])
+                  .order('created_at')
+                  .limit(3),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Text("Tidak ada aktivitas");
+                }
+                return Column(
+                  children: snapshot.data!.map((data) {
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      child: ListTile(
+                        leading: const CircleAvatar(backgroundColor: backgroundBlue, child: Icon(Icons.history, color: primaryBlue)),
+                        title: Text("Alat ID: ${data['id_alat']}"),
+                        subtitle: Text("Status: ${data['status']}"),
+                        trailing: const Icon(Icons.arrow_right),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -460,6 +505,15 @@ class PeminjamDashboard extends StatelessWidget {
               "Lihat Status Peminjaman",
               Icons.assignment,
               const StatusPage(),
+            ),
+
+            // ✅ TAMBAHAN MENU: PENGEMBALIAN (PEMINJAM)
+            const SizedBox(height: 12),
+            _buildLongMenu(
+              context,
+              "Pengembalian",
+              Icons.keyboard_return,
+              const PengembalianPage(),
             ),
 
             const SizedBox(height: 25),

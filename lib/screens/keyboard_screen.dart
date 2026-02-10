@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'add_keyboard_screen.dart';
+import 'keyboard_detail_screen.dart';
 
 class KeyboardScreen extends StatefulWidget {
-  // role menentukan fitur apa yang muncul (admin/petugas/peminjam)
-  final String role; 
+  final String role;
 
   const KeyboardScreen({super.key, required this.role});
 
@@ -15,13 +15,18 @@ class KeyboardScreen extends StatefulWidget {
 class _KeyboardScreenState extends State<KeyboardScreen> {
   final supabase = Supabase.instance.client;
 
-  // Filter default: Gaming (GMN)
   String selectedCategory = 'GMN';
   String searchQuery = '';
 
+  Future<Map<String, dynamic>> _fetchItem(dynamic idAlat) async {
+    final res =
+        await supabase.from('alat').select().eq('id_alat', idAlat).single();
+    return res as Map<String, dynamic>;
+  }
+
   @override
   Widget build(BuildContext context) {
-    String userRole = widget.role;
+    final String userRole = widget.role;
 
     return Scaffold(
       backgroundColor: const Color(0xFFAECBFA),
@@ -32,14 +37,17 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
           "Data Keyboard",
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+
+        // ✅ FIX UTAMA: kalau KeyboardScreen root, jangan ada tombol back
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
       ),
       body: Column(
         children: [
-          // ================= SEARCH BAR =================
           Padding(
             padding: const EdgeInsets.all(15),
             child: TextField(
@@ -58,9 +66,6 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
               ),
             ),
           ),
-
-          // ================= FILTER TABS =================
-          // Tombol kategori untuk menyaring data berdasarkan kode aset
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Row(
@@ -68,32 +73,32 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
               children: [
                 _buildFilterTab("Gaming", "GMN"),
                 _buildFilterTab("Wireless", "WLS"),
-                _buildFilterTab("Kantor", "KTR"),//kodeasset//
+                _buildFilterTab("Kantor", "KTR"),
               ],
             ),
           ),
-
           const SizedBox(height: 10),
-
-          // ================= STREAM DATA KEYBOARD =================
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              // Stream: Data otomatis terupdate jika ada perubahan di Supabase
-              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),//ARRAY AMBIL DATA //TABLE ALAT//
+              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(child: Text("Terjadi kesalahan: ${snapshot.error}"));
+                  return Center(
+                    child: Text("Terjadi kesalahan: ${snapshot.error}"),
+                  );
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Logika Filter: Menyaring data berdasarkan kategori dan kolom pencarian
                 final filteredData = snapshot.data!.where((item) {
-                  final String kodeAset = (item['kode_aset'] ?? "").toString().toUpperCase();
-                  final String merk = (item['merk'] ?? "").toString().toLowerCase();
+                  final String kodeAset =
+                      (item['kode_aset'] ?? "").toString().toUpperCase();
+                  final String merk =
+                      (item['merk'] ?? "").toString().toLowerCase();
 
-                  final matchesCategory = kodeAset.startsWith(selectedCategory.toUpperCase());
+                  final matchesCategory =
+                      kodeAset.startsWith(selectedCategory.toUpperCase());
                   final matchesSearch = merk.contains(searchQuery);
 
                   return matchesCategory && matchesSearch;
@@ -101,7 +106,10 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
 
                 if (filteredData.isEmpty) {
                   return const Center(
-                    child: Text("Produk tidak ditemukan", style: TextStyle(color: Colors.white)),
+                    child: Text(
+                      "Produk tidak ditemukan",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   );
                 }
 
@@ -110,12 +118,62 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                   itemCount: filteredData.length,
                   itemBuilder: (context, index) {
                     final item = filteredData[index];
-                    return _buildProductCard(
-                      item['id_alat'],
-                      item['merk'] ?? "Tanpa Merk",
-                      item['status'] ?? "Tidak Diketahui",
-                      item['image_url'] ?? "",
-                      userRole,
+                    final dynamic idAlat = item['id_alat'];
+
+                    return FutureBuilder<Map<String, dynamic>>(
+                      future: _fetchItem(idAlat),
+                      builder: (context, detailSnap) {
+                        if (detailSnap.connectionState ==
+                            ConnectionState.waiting) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 15),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: const SizedBox(
+                              height: 70,
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          );
+                        }
+
+                        if (detailSnap.hasError || !detailSnap.hasData) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 15),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: const SizedBox(
+                              height: 70,
+                              child: Center(child: Text("Data tidak ditemukan")),
+                            ),
+                          );
+                        }
+
+                        final data = detailSnap.data!;
+                        final String merk =
+                            (data['merk'] ?? "Tanpa Merk").toString();
+                        final String status =
+                            (data['status'] ?? "Tidak Diketahui").toString();
+                        final String imageUrl =
+                            (data['image_url'] ?? "").toString();
+                        final String spesifikasi =
+                            (data['spesifikasi'] ?? "Belum ada spesifikasi")
+                                .toString();
+
+                        return _buildProductCard(
+                          idAlat,
+                          merk,
+                          status,
+                          imageUrl,
+                          spesifikasi,
+                          userRole,
+                        );
+                      },
                     );
                   },
                 );
@@ -124,24 +182,27 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
           ),
         ],
       ),
-
-      // Floating Action Button HANYA muncul jika yang login adalah ADMIN
       floatingActionButton: userRole == "admin"
           ? FloatingActionButton(
               backgroundColor: const Color(0xFF5371A5),
               child: const Icon(Icons.add, color: Colors.white),
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AddKeyboardScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const AddKeyboardScreen(),
+                  ),
                 );
+
+                if (result == true && mounted) {
+                  setState(() {});
+                }
               },
             )
           : null,
     );
   }
 
-  // Widget tombol filter kategori
   Widget _buildFilterTab(String label, String code) {
     bool isSelected = selectedCategory == code;
     return GestureDetector(
@@ -163,110 +224,151 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     );
   }
 
-  // Widget Kartu Produk (Product Card)
   Widget _buildProductCard(
-      dynamic id, String name, String status, String imageUrl, String userRole) {
-    bool isAvailable = status.toLowerCase() == 'tersedia';
+    dynamic idAlat,
+    String merk,
+    String status,
+    String imageUrl,
+    String spesifikasi,
+    String userRole,
+  ) {
+    final bool isAvailable = status.toLowerCase() == 'tersedia';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Tampilan Gambar Alat
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: imageUrl.isNotEmpty
-                ? Image.network(
-                    imageUrl,
-                    width: 100,
-                    height: 70,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => const Icon(Icons.image_not_supported, size: 50),
-                  )
-                : const Icon(Icons.image, size: 50),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 5),
-                // Label Status (Tersedia / Dipinjam)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isAvailable ? Colors.green : Colors.orange,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    status,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(height: 5),
-                
-                // ================= LOGIKA TOMBOL BERDASARKAN ROLE =================
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // 1. Jika Peminjam & Barang Tersedia -> Muncul Tombol Keranjang
-                    if (userRole == "peminjam" && isAvailable)
-                      IconButton(
-                        icon: const Icon(Icons.shopping_cart, color: Colors.blue, size: 24),
-                        onPressed: () => _addToCart(id),
-                      ),
-                    // 2. Jika Petugas -> Muncul Tombol Approval
-                    if (userRole == "petugas")
-                      IconButton(
-                        icon: const Icon(Icons.notifications_active, color: Colors.orange, size: 24),
-                        onPressed: () => _approveRequest(id),
-                      ),
-                    // 3. Jika Admin -> Muncul Tombol Hapus
-                    if (userRole == "admin")
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red, size: 24),
-                        onPressed: () => _deleteKeyboard(id),
-                      ),
-                  ],
-                ),
-              ],
+    return InkWell(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => KeyboardDetailScreen(
+              idAlat: idAlat,
+              merk: merk,
+              status: status,
+              spesifikasi: spesifikasi,
+              imageUrl: imageUrl,
+              role: userRole,
             ),
           ),
-        ],
+        );
+
+        if (result == true && mounted) {
+          setState(() {});
+        }
+      },
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 15),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      width: 100,
+                      height: 70,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) =>
+                          const Icon(Icons.image_not_supported, size: 50),
+                    )
+                  : const Icon(Icons.image, size: 50),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    merk,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isAvailable ? Colors.green : Colors.orange,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      status,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (userRole == "peminjam" && isAvailable)
+                        IconButton(
+                          icon: const Icon(Icons.shopping_cart,
+                              color: Colors.blue, size: 24),
+                          onPressed: () => _addToCart(idAlat),
+                        ),
+                      if (userRole == "petugas")
+                        IconButton(
+                          icon: const Icon(Icons.notifications_active,
+                              color: Colors.orange, size: 24),
+                          onPressed: () => _approveRequest(idAlat),
+                        ),
+                      if (userRole == "admin")
+                        IconButton(
+                          icon: const Icon(Icons.delete,
+                              color: Colors.red, size: 24),
+                          onPressed: () => _deleteKeyboard(idAlat),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // ================= DATABASE FUNCTIONS =================
-
-  // Menambahkan barang ke keranjang (Peminjam)
   Future<void> _addToCart(dynamic idAlat) async {
     try {
       await supabase.from('keranjang').insert({
         'id_alat': idAlat,
         'id_user': supabase.auth.currentUser!.id,
       });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Masuk keranjang")));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Masuk keranjang")));
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Gagal: $e")));
+      }
     }
   }
 
-  // Menyetujui peminjaman (Petugas)
   Future<void> _approveRequest(dynamic idAlat) async {
-    await supabase.from('permintaan').update({'status': 'disetujui'}).eq('id_alat', idAlat);
+    await supabase
+        .from('permintaan')
+        .update({'status': 'disetujui'})
+        .eq('id_alat', idAlat);
   }
 
-  // Menghapus data keyboard (Admin)
   Future<void> _deleteKeyboard(dynamic idAlat) async {
     final bool? confirm = await showDialog(
       context: context,
@@ -274,14 +376,21 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
         title: const Text("Hapus?"),
         content: const Text("Data ini akan dihapus permanen."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Batal")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Hapus", style: TextStyle(color: Colors.red))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Batal"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Hapus", style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
 
     if (confirm == true) {
       await supabase.from('alat').delete().eq('id_alat', idAlat);
+      if (mounted) setState(() {});
     }
   }
 }

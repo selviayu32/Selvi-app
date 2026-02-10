@@ -91,7 +91,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
   }
 
   // --- LOGIKA SIMPAN (SAVE) ---
-  Future<void> _onSavePressed() async {//function//
+  Future<void> _onSavePressed() async {
     // 1. Validasi form: Pastikan semua input teks sudah diisi
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -147,11 +147,10 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
 
       _showSnack("Berhasil menambahkan produk");
 
-      // 5. NAVIGASI: Kalau sukses, pindah ke halaman Admin Dashboard
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminDashboard()),
-      );
+      // 5. NAVIGASI: KEMBALI KE HALAMAN SEBELUMNYA (yang pakai StreamBuilder)
+      // Supaya daftar keyboard langsung update otomatis
+      Navigator.pop(context);
+
     } catch (e) {
       if (!mounted) return;
       _showSnack("Gagal menambahkan produk: $e");
@@ -232,7 +231,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                     ),
                     const SizedBox(height: 10),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,//ARRAY//
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _categoryChip("Wireless"),
                         _categoryChip("Gaming"),
