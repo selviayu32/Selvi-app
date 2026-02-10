@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
+// Inisialisasi instance Supabase untuk melakukan query ke database
 final supabase = Supabase.instance.client;
 
 class StatusPage extends StatefulWidget {
@@ -12,22 +13,27 @@ class StatusPage extends StatefulWidget {
 }
 
 class _StatusPageState extends State<StatusPage> {
-  // ================= TAMBAHAN: flag role (peminjam tidak boleh setujui/tolak) =================
-  // Kalau suatu saat kamu bikin halaman status khusus petugas,
-  // tinggal ubah jadi true di halaman itu.
+  // ================= KOMENTAR: Flag Role =================
+  // Variabel ini menentukan apakah user memiliki hak akses untuk menyetujui/menolak.
+  // Jika false (default), tombol 'Setujui' dan 'Tolak' tidak akan muncul di UI.
   final bool _canApproveReject = false;
 
+  // ================= KOMENTAR: Pewarnaan Status =================
+  // Mengonversi string status dari database menjadi warna UI yang relevan.
   Color getStatusColor(String status) {
     if (status.toString().toLowerCase() == "disetujui") return Colors.green;
     if (status.toString().toLowerCase() == "ditolak") return Colors.red;
-    return Colors.orange;
+    return Colors.orange; // Default untuk status 'menunggu'
   }
 
-  // ================= TAMBAHAN: list lokal agar UI bisa langsung berubah tanpa refresh =================
+  // ================= KOMENTAR: State Manajemen Lokal =================
+  // _items: Menyimpan data sementara di memori aplikasi agar UI bisa update instan.
+  // _initialized: Flag untuk memastikan data stream hanya disinkronkan saat awal atau saat ada perubahan jumlah data.
   List<dynamic> _items = [];
   bool _initialized = false;
 
-  // ================= TAMBAHAN: konfirmasi umum (untuk setujui/tolak) =================
+  // ================= KOMENTAR: Dialog Konfirmasi =================
+  // Fungsi reusable untuk menampilkan popup konfirmasi (Ya/Batal) sebelum mengeksekusi aksi penting.
   Future<bool> _confirmAction(BuildContext context, String title, String message, Color btnColor) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -51,13 +57,15 @@ class _StatusPageState extends State<StatusPage> {
     return ok == true;
   }
 
-  // ================= TAMBAHAN: update status (setujui / tolak) =================
+  // ================= KOMENTAR: Logika Update Status =================
+  // Digunakan oleh admin/petugas untuk mengubah status permintaan di database.
   Future<void> _updateStatus(
     BuildContext context, {
     required String idPermintaan,
     required String statusBaru,
     required String merkAlat,
   }) async {
+    // Menampilkan dialog konfirmasi spesifik berdasarkan aksi (Setuju/Tolak)
     final ok = await _confirmAction(
       context,
       statusBaru == 'disetujui' ? "Setujui Permintaan?" : "Tolak Permintaan?",
@@ -68,13 +76,14 @@ class _StatusPageState extends State<StatusPage> {
     if (!ok) return;
 
     try {
-      // 1) update ke Supabase
+      // 1) Melakukan update data di tabel 'permintaan' pada database Supabase
       await supabase
           .from('permintaan')
           .update({'status': statusBaru})
           .eq('id_permintaan', idPermintaan);
 
-      // 2) update UI lokal biar langsung berubah tanpa refresh
+      // 2) Update UI Lokal: Mencari index item di list memori dan mengubah statusnya secara langsung.
+      // Ini membuat user tidak perlu melakukan 'pull to refresh' untuk melihat hasil.
       if (!mounted) return;
       setState(() {
         final idx = _items.indexWhere((x) => x['id_permintaan'].toString() == idPermintaan);
@@ -94,14 +103,15 @@ class _StatusPageState extends State<StatusPage> {
     }
   }
 
-  // ================= TAMBAHAN: helper konfirmasi & hapus =================
+  // ================= KOMENTAR: Logika Hapus/Batal =================
+  // Menghapus data permintaan dari database, biasanya digunakan oleh peminjam.
   Future<void> _confirmAndDelete(
     BuildContext context, {
     required String idPermintaan,
     required String merkAlat,
     required String status,
   }) async {
-    // Aturan umum: batal/hapus hanya saat masih menunggu
+    // Validasi: Pembatalan hanya diizinkan jika status database masih 'menunggu'.
     if (status.toString().toLowerCase() != 'menunggu') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Hanya permintaan MENUNGGU yang bisa dibatalkan.")),
@@ -134,10 +144,10 @@ class _StatusPageState extends State<StatusPage> {
     if (ok != true) return;
 
     try {
-      // 1) hapus dari Supabase (database)
+      // 1) Menghapus baris data dari tabel 'permintaan' di database Supabase.
       await supabase.from('permintaan').delete().eq('id_permintaan', idPermintaan);
 
-      // 2) hapus langsung dari tampilan (tanpa refresh)
+      // 2) Update UI Lokal: Menghapus item dari list _items di memori sehingga kartu hilang dari layar.
       if (!mounted) return;
       setState(() {
         _items.removeWhere((x) => x['id_permintaan'].toString() == idPermintaan);
@@ -156,6 +166,7 @@ class _StatusPageState extends State<StatusPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Mendapatkan data user yang sedang aktif login
     final user = supabase.auth.currentUser;
 
     return Scaffold(
@@ -171,6 +182,8 @@ class _StatusPageState extends State<StatusPage> {
         ),
       ),
 
+      // ================= KOMENTAR: Real-time Listener =================
+      // StreamBuilder mendengarkan perubahan pada tabel 'permintaan' secara otomatis.
       body: StreamBuilder(
         stream: supabase
             .from('permintaan')
@@ -179,13 +192,16 @@ class _StatusPageState extends State<StatusPage> {
             .order('created_at', ascending: false),
 
         builder: (context, snapshot) {
+          // Menampilkan loading spinner selama koneksi awal ke database.
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final data = snapshot.data!;
 
-          // ================= TAMBAHAN: sinkronkan data stream ke list lokal =================
+          // ================= KOMENTAR: Sinkronisasi Stream ke List Lokal =================
+          // Logika ini memastikan data dari database (data) masuk ke list memori (_items).
+          // Jika jumlah data berubah di database, list lokal akan di-reset.
           if (!_initialized) {
             _items = List<dynamic>.from(data);
             _initialized = true;
@@ -195,12 +211,14 @@ class _StatusPageState extends State<StatusPage> {
             }
           }
 
+          // Jika tidak ada data ditemukan untuk user tersebut.
           if (_items.isEmpty) {
             return const Center(
               child: Text("Belum ada permintaan", style: TextStyle(fontSize: 16)),
             );
           }
 
+          // Menampilkan list kartu peminjaman.
           return ListView.builder(
             padding: const EdgeInsets.all(12),
             itemCount: _items.length,
@@ -208,6 +226,9 @@ class _StatusPageState extends State<StatusPage> {
               final item = _items[i];
               final status = item['status'];
 
+              // ================= KOMENTAR: Fetch Detail Alat =================
+              // Karena tabel 'permintaan' hanya menyimpan 'id_alat', kita butuh FutureBuilder
+              // untuk mengambil nama/merk dan gambar dari tabel 'alat' berdasarkan ID tersebut.
               return FutureBuilder(
                 future: supabase
                     .from('alat')
@@ -216,16 +237,19 @@ class _StatusPageState extends State<StatusPage> {
                     .single(),
 
                 builder: (context, alatSnap) {
+                  // Jika detail alat belum terambil, tampilkan kotak kosong (SizedBox).
                   if (!alatSnap.hasData) return const SizedBox();
                   final alat = alatSnap.data!;
 
                   final String idPermintaan = item['id_permintaan'].toString();
                   final String merkAlat = (alat['merk'] ?? "Keyboard").toString();
 
+                  // Cek apakah status saat ini adalah 'menunggu' untuk menentukan akses tombol.
                   final bool isMenunggu = status.toString().toLowerCase().trim() == 'menunggu';
 
+                  // Desain Kartu (Container) per item peminjaman.
                   return Container(
-                    key: ValueKey(idPermintaan),
+                    key: ValueKey(idPermintaan), // Key unik untuk membantu Flutter mengelola list item.
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -241,6 +265,7 @@ class _StatusPageState extends State<StatusPage> {
                     ),
                     child: Row(
                       children: [
+                        // Menampilkan Gambar Alat dari URL database.
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.network(
@@ -248,6 +273,7 @@ class _StatusPageState extends State<StatusPage> {
                             width: 60,
                             height: 60,
                             fit: BoxFit.cover,
+                            // Jika gambar gagal dimuat (URL mati/kosong).
                             errorBuilder: (c, e, s) => Container(
                               width: 60,
                               height: 60,
@@ -259,6 +285,7 @@ class _StatusPageState extends State<StatusPage> {
 
                         const SizedBox(width: 12),
 
+                        // Menampilkan informasi teks (Merk dan Tanggal).
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,11 +307,11 @@ class _StatusPageState extends State<StatusPage> {
                           ),
                         ),
 
-                        // ================= UPDATE: PEMINJAM TIDAK MENAMPILKAN SETUJU/TOLAK =================
+                        // ================= KOMENTAR: Kontrol Aksi (Admin vs User) =================
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            // kalau role boleh approve/reject barulah tampil tombol
+                            // Jika user adalah admin (_canApproveReject = true) & status masih menunggu.
                             if (isMenunggu && _canApproveReject) ...[
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -323,7 +350,7 @@ class _StatusPageState extends State<StatusPage> {
                                 ],
                               ),
                             ] else ...[
-                              // default: tampil status saja
+                              // Tampilan default untuk peminjam: Label Status (Warna menyesuaikan status).
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
@@ -343,6 +370,7 @@ class _StatusPageState extends State<StatusPage> {
 
                             const SizedBox(height: 6),
 
+                            // Tombol Sampah untuk fitur pembatalan permintaan.
                             InkWell(
                               onTap: () => _confirmAndDelete(
                                 context,
@@ -356,6 +384,7 @@ class _StatusPageState extends State<StatusPage> {
                                 child: Icon(
                                   Icons.delete_outline,
                                   size: 20,
+                                  // Ikon berwarna merah hanya jika bisa dihapus (status menunggu).
                                   color: isMenunggu ? Colors.red.shade400 : Colors.grey.shade400,
                                 ),
                               ),

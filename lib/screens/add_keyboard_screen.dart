@@ -13,26 +13,29 @@ class AddKeyboardScreen extends StatefulWidget {
 }
 
 class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
-  // Warna Tema Figma
+  // --- WARNA TEMA ---
   final Color primaryBlue = const Color(0xFF5371A5);
   final Color backgroundBlue = const Color(0xFFAECBFA);
 
-  // Controller & State
+  // --- CONTROLLER & STATE ---
+  // Controller buat ambil apa yang diketik user di form
   final TextEditingController _merkController = TextEditingController();
   final TextEditingController _specController = TextEditingController();
-  String _selectedCategory = 'Gaming';
+  String _selectedCategory = 'Gaming'; // Default kategori yang kepilih
 
-  // Form key untuk validasi
+  // GlobalKey buat validasi form (biar ketahuan kalau ada field yang belum diisi)
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  // Variabel untuk menyimpan foto
+  // --- VARIABEL FOTO ---
+  // Kita simpan foto dalam bentuk bytes biar fleksibel (bisa diproses di web/mobile)
   Uint8List? _selectedImageBytes;
   XFile? _selectedXFile;
   final ImagePicker _picker = ImagePicker();
 
-  bool _isSubmitting = false;
+  bool _isSubmitting = false; // Status loading saat proses simpan ke database
 
-  // mapping kategori ke id_kategori di tabel alat
+  // --- MAPPING KATEGORI ---
+  // Ngubah teks kategori jadi angka ID sesuai urutan di tabel database
   int _mapKategoriToId(String kategori) {
     switch (kategori) {
       case 'Wireless':
@@ -46,7 +49,9 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
     }
   }
 
-  // UPDATE: Generate kode_aset otomatis berdasarkan kategori agar lolos filter di list
+  // --- GENERATE KODE ASET ---
+  // Bikin kode unik otomatis (Prefix + Timestamp). 
+  // Contoh: GMN-170845... gunanya biar filter di halaman list berfungsi akurat.
   String _generateKodeAset() {
     final ts = DateTime.now().millisecondsSinceEpoch;
     String prefix = "";
@@ -64,7 +69,8 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
     return "$prefix-$ts";
   }
 
-  // Fungsi untuk mengambil foto dari Galeri
+  // --- FUNGSI AMBIL GAMBAR ---
+  // Buka galeri HP, ambil fotonya, terus konversi ke Bytes buat dipreview
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
@@ -77,20 +83,25 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
     }
   }
 
+  // Fungsi pembantu buat nampilin pesan snackbar di bawah
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg)),
     );
   }
 
-  Future<void> _onSavePressed() async {
+  // --- LOGIKA SIMPAN (SAVE) ---
+  Future<void> _onSavePressed() async {//function//
+    // 1. Validasi form: Pastikan semua input teks sudah diisi
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    // 2. Validasi foto: Pastikan user sudah pilih foto
     if (_selectedImageBytes == null || _selectedXFile == null) {
       _showSnack("Foto produk wajib diisi.");
       return;
     }
 
+    // 3. Konfirmasi: Munculin pop-up "Ya/Batal" sebelum beneran dikirim ke server
     final bool? yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -111,13 +122,13 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
 
     if (yes != true) return;
 
-    setState(() => _isSubmitting = true);
+    setState(() => _isSubmitting = true); // Mulai loading
 
     try {
       final idKategori = _mapKategoriToId(_selectedCategory);
       final kodeAset = _generateKodeAset();
 
-      // Memanggil Service untuk insert ke Supabase
+      // 4. PROSES KE DATABASE: Manggil fungsi di AlatService buat upload foto & simpan data
       final String? err = await AlatService().tambahAlatDenganFoto(
         kodeAset: kodeAset,
         merk: _merkController.text.trim(),
@@ -136,7 +147,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
 
       _showSnack("Berhasil menambahkan produk");
 
-      // Kembali ke Dashboard Admin
+      // 5. NAVIGASI: Kalau sukses, pindah ke halaman Admin Dashboard
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const AdminDashboard()),
@@ -145,12 +156,14 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
       if (!mounted) return;
       _showSnack("Gagal menambahkan produk: $e");
     } finally {
+      // Selesai proses, matikan status loading
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   void dispose() {
+    // Bersihin controller biar gak makan memori (memory leak)
     _merkController.dispose();
     _specController.dispose();
     super.dispose();
@@ -175,9 +188,10 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
-          key: _formKey,
+          key: _formKey, // Pasang kunci validasi ke form
           child: Column(
             children: [
+              // INPUT MERK
               _buildInputContainer(
                 "Merk",
                 "Tambahkan Merk",
@@ -189,6 +203,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                 },
               ),
               const SizedBox(height: 20),
+              // INPUT SPESIFIKASI
               _buildInputContainer(
                 "Spesifikasi",
                 "Tambahkan Spesifikasi",
@@ -200,6 +215,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                 },
               ),
               const SizedBox(height: 20),
+              // PILIH KATEGORI (Wireless/Gaming/Kantor)
               Container(
                 padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
@@ -216,7 +232,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                     ),
                     const SizedBox(height: 10),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,//ARRAY//
                       children: [
                         _categoryChip("Wireless"),
                         _categoryChip("Gaming"),
@@ -227,6 +243,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                 ),
               ),
               const SizedBox(height: 30),
+              // BAGIAN UPLOAD FOTO (Bisa di klik buat buka galeri)
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
@@ -262,6 +279,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                 Text("File: ${_selectedXFile!.name}", style: const TextStyle(color: Colors.black87)),
               ],
               const SizedBox(height: 40),
+              // TOMBOL AKSI (BATAL & SIMPAN)
               Row(
                 children: [
                   Expanded(
@@ -299,6 +317,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
     );
   }
 
+  // WIDGET CUSTOM: Buat bikin tampilan kotak input (biar kode gak berulang-ulang)
   Widget _buildInputContainer(String title, String hint, TextEditingController controller, int lines, {String? Function(String?)? validator}) {
     return Container(
       padding: const EdgeInsets.all(15),
@@ -322,6 +341,7 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
     );
   }
 
+  // WIDGET CUSTOM: Buat bikin tombol pilihan kategori (Chip)
   Widget _categoryChip(String label) {
     bool isSelected = _selectedCategory == label;
     return ChoiceChip(

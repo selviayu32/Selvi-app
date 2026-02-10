@@ -2,35 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ================= WARNA TEMA =================
+// Ini adalah pengaturan warna utama agar tampilan aplikasi seragam (biru dan biru muda).
 const Color primaryBlue = Color(0xFF5371A5);
 const Color backgroundBlue = Color(0xFFAECBFA);
 
-// Supabase client
+// Supabase client: Alat untuk menghubungkan aplikasi dengan database online (Supabase).
 final supabase = Supabase.instance.client;
 
 class DataPetugasScreen extends StatelessWidget {
   const DataPetugasScreen({super.key});
 
-  // ================= 1. EDIT PROFIL =================
+  // ================= 1. FUNGSI EDIT PROFIL =================
+  // Fungsi ini akan memunculkan "lembaran" dari bawah (Bottom Sheet) untuk mengubah data.
   void _showEditSheet(BuildContext context) {
+    // Controller digunakan untuk menangkap teks yang diketik oleh user.
     final nameController = TextEditingController(text: "Selvi");
     final nipController = TextEditingController(text: "1012007");
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: true, // Agar sheet bisa naik saat keyboard muncul.
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.of(context).viewInsets.bottom, // Menyesuaikan tinggi keyboard.
           left: 25,
           right: 25,
           top: 25,
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min, // Agar tinggi kolom mengikuti isi saja.
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
@@ -39,7 +42,7 @@ class DataPetugasScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Input Nama
+            // Input Nama: Kotak untuk mengetik nama petugas.
             TextField(
               controller: nameController,
               decoration: InputDecoration(
@@ -49,7 +52,7 @@ class DataPetugasScreen extends StatelessWidget {
             ),
             const SizedBox(height: 15),
 
-            // Input NIP
+            // Input NIP: Kotak untuk mengetik nomor identitas petugas.
             TextField(
               controller: nipController,
               decoration: InputDecoration(
@@ -59,7 +62,7 @@ class DataPetugasScreen extends StatelessWidget {
             ),
             const SizedBox(height: 25),
 
-            // Tombol Simpan
+            // Tombol Simpan: Saat diklik, akan menutup sheet dan memberi notifikasi.
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -69,7 +72,7 @@ class DataPetugasScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
                 onPressed: () async {
-                  Navigator.pop(context);
+                  Navigator.pop(context); // Menutup lembaran bawah.
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Profil berhasil diperbarui!")),
                   );
@@ -84,7 +87,8 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
-  // ================= 2. HUBUNGI PETUGAS =================
+  // ================= 2. FUNGSI HUBUNGI PETUGAS =================
+  // Fungsi untuk memunculkan kotak pesan (Dialog) dan mengirimnya ke database Supabase.
   void _showHubungiDialog(BuildContext context) {
     final pesanController = TextEditingController();
 
@@ -98,11 +102,11 @@ class DataPetugasScreen extends StatelessWidget {
         ),
         content: TextField(
           controller: pesanController,
-          maxLines: 3,
+          maxLines: 3, // Membuat kotak input lebih luas untuk mengetik pesan panjang.
           decoration: InputDecoration(
             hintText: "Tulis pesan instruksi...",
             filled: true,
-            fillColor: backgroundBlue.withOpacity(0.1), // FIX ERROR
+            fillColor: backgroundBlue.withOpacity(0.1), 
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
               borderSide: BorderSide.none,
@@ -110,18 +114,21 @@ class DataPetugasScreen extends StatelessWidget {
           ),
         ),
         actions: [
+          // Tombol untuk membatalkan pengiriman pesan.
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text("Batal", style: TextStyle(color: Colors.grey)),
           ),
+          // Tombol Kirim: Proses memasukkan data ke tabel 'pesan' di database.
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             onPressed: () async {
               if (pesanController.text.isNotEmpty) {
                 try {
+                  // Menyimpan data pesan ke database online.
                   await supabase.from('pesan').insert({
                     'isi_pesan': pesanController.text,
-                    'penerima_id': 'ID_USER_PETUGAS', // nanti ganti auth id
+                    'penerima_id': 'ID_USER_PETUGAS', 
                     'is_read': false,
                   });
 
@@ -144,7 +151,7 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
-  // ================= UI UTAMA =================
+  // ================= UI UTAMA (TAMPILAN LAYAR) =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -155,7 +162,7 @@ class DataPetugasScreen extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context), // Kembali ke halaman sebelumnya.
         ),
         title: const Text(
           "Detail Petugas",
@@ -167,6 +174,7 @@ class DataPetugasScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Menampilkan Kartu Profil (Foto, Nama, Jabatan).
             _buildMainProfileCard(
               nama: "Selvi",
               role: "Petugas Sarpras IT",
@@ -180,6 +188,7 @@ class DataPetugasScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
+            // Menampilkan Kartu Informasi Detail.
             _buildDetailInformationCard(
               nip: "1012007",
               email: "selvi2@gmail.com",
@@ -194,6 +203,7 @@ class DataPetugasScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
+            // Baris tombol aksi: Edit Profil dan Hubungi.
             Row(
               children: [
                 Expanded(
@@ -217,7 +227,7 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
-  // ================= CARD PROFIL =================
+  // ================= KOMPONEN: KARTU PROFIL UTAMA =================
   Widget _buildMainProfileCard({required String nama, required String role, required String status}) {
     return Container(
       width: double.infinity,
@@ -235,6 +245,7 @@ class DataPetugasScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // Bagian Foto Profil dan Indikator Hijau (Online/Aktif).
           Stack(
             alignment: Alignment.bottomRight,
             children: [
@@ -265,6 +276,7 @@ class DataPetugasScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 15),
+          // Label Status Aktif.
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             decoration: BoxDecoration(
@@ -281,7 +293,7 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
-  // ================= DETAIL INFO =================
+  // ================= KOMPONEN: KARTU DETAIL INFO =================
   Widget _buildDetailInformationCard({
     required String nip,
     required String email,
@@ -305,7 +317,7 @@ class DataPetugasScreen extends StatelessWidget {
       child: Column(
         children: [
           _buildInfoTile(Icons.badge_rounded, "NIP", nip),
-          const Divider(height: 25, thickness: 0.5),
+          const Divider(height: 25, thickness: 0.5), // Garis pemisah antar baris.
           _buildInfoTile(Icons.alternate_email_rounded, "Email", email),
           const Divider(height: 25, thickness: 0.5),
           _buildInfoTile(Icons.phone_iphone_rounded, "Nomor Telepon", phone),
@@ -316,6 +328,7 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
+  // Komponen kecil untuk menampilkan satu baris informasi (Ikon + Judul + Isi).
   Widget _buildInfoTile(IconData icon, String label, String value) {
     return Row(
       children: [
@@ -342,7 +355,8 @@ class DataPetugasScreen extends StatelessWidget {
     );
   }
 
-  // ================= TOMBOL AKSI =================
+  // ================= KOMPONEN: TOMBOL AKSI =================
+  // Membuat tombol dengan desain kustom yang bisa diatur warnanya.
   Widget _buildActionButton(IconData icon, String label, Color bgColor, Color textColor) {
     return Container(
       height: 55,

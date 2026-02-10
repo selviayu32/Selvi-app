@@ -3,7 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'add_keyboard_screen.dart';
 
 class KeyboardScreen extends StatefulWidget {
-  final String role; // admin | petugas | peminjam
+  // role menentukan fitur apa yang muncul (admin/petugas/peminjam)
+  final String role; 
 
   const KeyboardScreen({super.key, required this.role});
 
@@ -14,6 +15,7 @@ class KeyboardScreen extends StatefulWidget {
 class _KeyboardScreenState extends State<KeyboardScreen> {
   final supabase = Supabase.instance.client;
 
+  // Filter default: Gaming (GMN)
   String selectedCategory = 'GMN';
   String searchQuery = '';
 
@@ -37,7 +39,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
       ),
       body: Column(
         children: [
-          // SEARCH BAR
+          // ================= SEARCH BAR =================
           Padding(
             padding: const EdgeInsets.all(15),
             child: TextField(
@@ -57,7 +59,8 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
             ),
           ),
 
-          // FILTER TABS
+          // ================= FILTER TABS =================
+          // Tombol kategori untuk menyaring data berdasarkan kode aset
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Row(
@@ -65,17 +68,18 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
               children: [
                 _buildFilterTab("Gaming", "GMN"),
                 _buildFilterTab("Wireless", "WLS"),
-                _buildFilterTab("Kantor", "KTR"),
+                _buildFilterTab("Kantor", "KTR"),//kodeasset//
               ],
             ),
           ),
 
           const SizedBox(height: 10),
 
-          // LIST DATA MENGGUNAKAN STREAM
+          // ================= STREAM DATA KEYBOARD =================
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
+              // Stream: Data otomatis terupdate jika ada perubahan di Supabase
+              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),//ARRAY AMBIL DATA //TABLE ALAT//
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(child: Text("Terjadi kesalahan: ${snapshot.error}"));
@@ -84,7 +88,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // UPDATE: Logika Filter yang lebih aman
+                // Logika Filter: Menyaring data berdasarkan kategori dan kolom pencarian
                 final filteredData = snapshot.data!.where((item) {
                   final String kodeAset = (item['kode_aset'] ?? "").toString().toUpperCase();
                   final String merk = (item['merk'] ?? "").toString().toLowerCase();
@@ -121,6 +125,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
         ],
       ),
 
+      // Floating Action Button HANYA muncul jika yang login adalah ADMIN
       floatingActionButton: userRole == "admin"
           ? FloatingActionButton(
               backgroundColor: const Color(0xFF5371A5),
@@ -136,6 +141,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     );
   }
 
+  // Widget tombol filter kategori
   Widget _buildFilterTab(String label, String code) {
     bool isSelected = selectedCategory == code;
     return GestureDetector(
@@ -157,6 +163,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     );
   }
 
+  // Widget Kartu Produk (Product Card)
   Widget _buildProductCard(
       dynamic id, String name, String status, String imageUrl, String userRole) {
     bool isAvailable = status.toLowerCase() == 'tersedia';
@@ -173,6 +180,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
       ),
       child: Row(
         children: [
+          // Tampilan Gambar Alat
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: imageUrl.isNotEmpty
@@ -192,6 +200,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
               children: [
                 Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 5),
+                // Label Status (Tersedia / Dipinjam)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -204,19 +213,24 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 5),
+                
+                // ================= LOGIKA TOMBOL BERDASARKAN ROLE =================
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    // 1. Jika Peminjam & Barang Tersedia -> Muncul Tombol Keranjang
                     if (userRole == "peminjam" && isAvailable)
                       IconButton(
                         icon: const Icon(Icons.shopping_cart, color: Colors.blue, size: 24),
                         onPressed: () => _addToCart(id),
                       ),
+                    // 2. Jika Petugas -> Muncul Tombol Approval
                     if (userRole == "petugas")
                       IconButton(
                         icon: const Icon(Icons.notifications_active, color: Colors.orange, size: 24),
                         onPressed: () => _approveRequest(id),
                       ),
+                    // 3. Jika Admin -> Muncul Tombol Hapus
                     if (userRole == "admin")
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red, size: 24),
@@ -234,6 +248,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
 
   // ================= DATABASE FUNCTIONS =================
 
+  // Menambahkan barang ke keranjang (Peminjam)
   Future<void> _addToCart(dynamic idAlat) async {
     try {
       await supabase.from('keranjang').insert({
@@ -246,10 +261,12 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     }
   }
 
+  // Menyetujui peminjaman (Petugas)
   Future<void> _approveRequest(dynamic idAlat) async {
     await supabase.from('permintaan').update({'status': 'disetujui'}).eq('id_alat', idAlat);
   }
 
+  // Menghapus data keyboard (Admin)
   Future<void> _deleteKeyboard(dynamic idAlat) async {
     final bool? confirm = await showDialog(
       context: context,

@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
+// Inisialisasi client Supabase
 final supabase = Supabase.instance.client;
 
 class KonfirmasiPetugasPage extends StatelessWidget {
   const KonfirmasiPetugasPage({super.key});
 
+  // Fungsi untuk menentukan warna UI berdasarkan status transaksi
   Color getStatusColor(String status) {
     if (status.toLowerCase() == "disetujui") return Colors.green;
     if (status.toLowerCase() == "ditolak") return Colors.red;
-    return Colors.orange;
+    return Colors.orange; // Untuk status 'menunggu'
   }
 
+  // Fungsi Dialog Konfirmasi: Memastikan petugas tidak salah tekan tombol aksi
   Future<bool> _confirm(BuildContext context, String title, String message, Color btnColor) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -36,6 +39,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
     return ok == true;
   }
 
+  // Fungsi Update Status: Mengubah status di DB dan mengirim notifikasi ke user
   Future<void> _updateStatus(
     BuildContext context, {
     required String idPermintaan,
@@ -53,12 +57,13 @@ class KonfirmasiPetugasPage extends StatelessWidget {
     if (!ok) return;
 
     try {
+      // Step 1: Update status pada tabel permintaan peminjaman
       await supabase
           .from('permintaan')
           .update({'status': statusBaru})
           .eq('id_permintaan', idPermintaan);
 
-      // Kirim notifikasi (kalau tabel notifications kamu sesuai)
+      // Step 2: Masukkan pesan ke tabel notifikasi agar bisa dibaca oleh Peminjam
       await supabase.from('notifications').insert({
         'user_id': userIdPeminjam,
         'title': 'Status Peminjaman',
@@ -96,12 +101,13 @@ class KonfirmasiPetugasPage extends StatelessWidget {
         ),
       ),
       body: StreamBuilder(
+        // StreamBuilder: Aplikasi akan otomatis refresh jika ada data baru di tabel 'permintaan'
         stream: supabase
             .from('permintaan')
             .stream(primaryKey: ['id_permintaan'])
             .order('created_at', ascending: false),
         builder: (context, snapshot) {
-          // ✅ ini kunci: kalau error RLS, bakal kelihatan!
+          // Validasi error (sangat berguna untuk cek Row Level Security / RLS di Supabase)
           if (snapshot.hasError) {
             return Center(
               child: Padding(
@@ -121,7 +127,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
 
           final List data = snapshot.data as List;
 
-          // kalau data = 0 terus, berarti querynya kosong / tidak boleh akses
+          // Cek jika tabel permintaan benar-benar kosong
           if (data.isEmpty) {
             return const Center(
               child: Text(
@@ -132,13 +138,13 @@ class KonfirmasiPetugasPage extends StatelessWidget {
             );
           }
 
-          // ✅ filter aman: contains + trim + lowercase
+          // Logika Filter: Hanya menampilkan permintaan yang statusnya 'menunggu'
           final dataMenunggu = data.where((x) {
             final s = (x['status'] ?? '').toString().toLowerCase().trim();
             return s.contains('menunggu');
           }).toList();
 
-          // ✅ DIUBAH: hilangkan tulisan debug -> jadi pesan normal
+          // Cek jika tidak ada permintaan yang berstatus 'menunggu'
           if (dataMenunggu.isEmpty) {
             return const Center(
               child: Text(
@@ -159,10 +165,12 @@ class KonfirmasiPetugasPage extends StatelessWidget {
               final String status = (item['status'] ?? 'menunggu').toString();
               final String userIdPeminjam = item['id_user'].toString();
 
+              // Memformat tanggal dari String DB ke format yang mudah dibaca
               final String tglPinjam = DateFormat('dd MMM yyyy')
                   .format(DateTime.parse(item['tgl_pinjam']).toLocal());
 
               return FutureBuilder(
+                // Mengambil detail Merk dan Gambar dari tabel 'alat' berdasarkan id_alat di tabel permintaan
                 future: supabase
                     .from('alat')
                     .select()
@@ -192,6 +200,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
+                        // Bagian Gambar Alat
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.network(
@@ -208,6 +217,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
+                        // Bagian Informasi (Nama Barang & Tanggal)
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,6 +231,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
                               const SizedBox(height: 5),
                               Text("Tanggal: $tglPinjam", style: TextStyle(color: Colors.grey[700])),
                               const SizedBox(height: 6),
+                              // Badge Status
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
@@ -240,6 +251,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
+                        // Bagian Tombol Aksi Petugas
                         Column(
                           children: [
                             ElevatedButton(

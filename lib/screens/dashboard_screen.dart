@@ -1,42 +1,84 @@
 import 'package:flutter/material.dart';
+// IMPORT UI FLUTTER: SCAFFOLD, APPBAR, TEXT, COLUMN, DLL
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+// IMPORT SUPABASE FLUTTER: AUTH + DATABASE REALTIME (STREAM)
+
 import 'profile_screen.dart';
+// IMPORT HALAMAN PROFILE (DIPAKAI SAAT KLIK ICON PROFILE)
+
 import 'keyboard_screen.dart';
+// IMPORT HALAMAN DAFTAR KEYBOARD/ALAT
+
 import 'keranjang_page.dart';
+// IMPORT HALAMAN KERANJANG (UNTUK ROLE PEMINJAM)
+
 import 'data_petugas_screen.dart';
+// IMPORT HALAMAN DATA PETUGAS (UNTUK ADMIN)
+
 import 'status_page.dart';
+// IMPORT HALAMAN STATUS PEMINJAMAN (UNTUK PEMINJAM)
+
 import 'konfirmasi_petugas_page.dart';
+// IMPORT HALAMAN KONFIRMASI PETUGAS (NOTIF PERMINTAAN MENUNGGU)
 
-// Warna Tema Figma
+// =====================================================
+// KONFIGURASI WARNA UTAMA APLIKASI (BIAR KONSISTEN)
+// =====================================================
 const Color primaryBlue = Color(0xFF5371A5);
+// WARNA UTAMA (BIRU TUA)
+
 const Color backgroundBlue = Color(0xFFAECBFA);
+// WARNA BACKGROUND (BIRU MUDA)
 
+// =====================================================
+// INISIALISASI CLIENT SUPABASE (UNTUK QUERY/STREAM)
+// =====================================================
 final supabase = Supabase.instance.client;
+// CLIENT INI DIPAKAI DI SEMUA QUERY: from('tabel')..., auth..., DLL
 
-// ================= DASHBOARD ADMIN =================
+// =====================================================
+// 1) DASHBOARD ADMIN
+// =====================================================
+// STATELESS KARENA DATA REALTIME DIHANDLE STREAMBUILDER (AUTO UPDATE)
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // KERANGKA HALAMAN (APPBAR + BODY)
       backgroundColor: backgroundBlue,
+
+      // APPBAR: PAKAI HELPER AGAR KONSISTEN DI SEMUA ROLE
       appBar: _buildAppBar(context, "Hallo Admin", "admin", "Celvinno"),
+
       body: Padding(
+        // PADDING LUAR BIAR KONTEN GA NEMPEL TEPI
         padding: const EdgeInsets.all(20),
         child: Column(
+          // SUSUN KONTEN DARI ATAS KE BAWAH
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Statistik Card Utama
+            // =========================
+            // KARTU STATISTIK: TOTAL KEYBOARD
+            // =========================
             StreamBuilder(
-              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
+              // STREAM REALTIME: AMBIL DATA DARI TABEL 'alat'
+              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),//ARRAY ID ALAT DAN STRAMBUILDER//
               builder: (context, snapshot) {
+                // HITUNG JUMLAH DATA SAAT ADA, KALAU BELUM ADA -> 0
                 final total =
                     snapshot.hasData ? snapshot.data!.length.toString() : "0";
+
+                // TAMPILKAN DALAM CARD
                 return _buildStatCard("Total Keyboard", total);
               },
             ),
+
             const SizedBox(height: 25),
+
+            // JUDUL SECTION
             const Text(
               "Manajemen Data",
               style: TextStyle(
@@ -45,36 +87,46 @@ class AdminDashboard extends StatelessWidget {
                 color: primaryBlue,
               ),
             ),
+
             const SizedBox(height: 15),
+
+            // =========================
+            // GRID MENU ADMIN
+            // =========================
             Expanded(
+              // EXPANDED BIAR GRID NGISI SISA RUANG LAYAR
               child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
+                crossAxisCount: 2, // 2 KOLOM
+                crossAxisSpacing: 15, // JARAK ANTAR KOLOM
+                mainAxisSpacing: 15, // JARAK ANTAR BARIS
                 children: [
                   _buildMenuCard(
                     context,
                     "Data Keyboard",
                     Icons.keyboard,
-                    KeyboardScreen(role: "admin"),
+                    const KeyboardScreen(role: "admin"),
+                    // NAVIGASI KE KEYBOARDSCREEN DENGAN ROLE ADMIN
                   ),
                   _buildMenuCard(
                     context,
                     "Data Petugas",
                     Icons.badge,
                     const DataPetugasScreen(),
+                    // NAVIGASI KE DATAPETUGASSCREEN
                   ),
                   _buildMenuCard(
                     context,
                     "Data Peminjam",
                     Icons.people,
                     null,
+                    // NULL = BELUM ADA HALAMAN, JADI TIDAK BISA DIKLIK
                   ),
                   _buildMenuCard(
                     context,
                     "Riwayat",
                     Icons.history,
                     null,
+                    // NULL = BELUM ADA HALAMAN
                   ),
                 ],
               ),
@@ -86,7 +138,9 @@ class AdminDashboard extends StatelessWidget {
   }
 }
 
-// ================= DASHBOARD PETUGAS =================
+// =====================================================
+// 2) DASHBOARD PETUGAS
+// =====================================================
 class PetugasDashboard extends StatelessWidget {
   const PetugasDashboard({super.key});
 
@@ -95,11 +149,14 @@ class PetugasDashboard extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundBlue,
       appBar: _buildAppBar(context, "Hallo Petugas", "petugas", "Selvi"),
+
+      // SCROLLVIEW: BIAR HALAMAN BISA DISCROLL KALO KONTEN PANJANG
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // JUDUL SECTION
             const Text(
               "Ringkasan Data",
               style: TextStyle(
@@ -108,9 +165,15 @@ class PetugasDashboard extends StatelessWidget {
                 color: primaryBlue,
               ),
             ),
+
             const SizedBox(height: 15),
+
+            // =========================
+            // ROW 2 KARTU STATISTIK (TOTAL ALAT & PENDING)
+            // =========================
             Row(
               children: [
+                // KARTU KIRI: TOTAL ALAT
                 Expanded(
                   child: StreamBuilder(
                     stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
@@ -127,13 +190,17 @@ class PetugasDashboard extends StatelessWidget {
                     },
                   ),
                 ),
+
                 const SizedBox(width: 15),
+
+                // KARTU KANAN: PERMINTAAN MENUNGGU
                 Expanded(
                   child: StreamBuilder(
                     stream: supabase
                         .from('permintaan')
                         .stream(primaryKey: ['id_permintaan'])
                         .eq('status', 'menunggu'),
+                    // FILTER: HANYA STATUS = 'menunggu'
                     builder: (context, snapshot) {
                       final pending = snapshot.hasData
                           ? snapshot.data!.length.toString()
@@ -149,7 +216,10 @@ class PetugasDashboard extends StatelessWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 30),
+
+            // JUDUL SECTION
             const Text(
               "Menu Utama",
               style: TextStyle(
@@ -158,7 +228,14 @@ class PetugasDashboard extends StatelessWidget {
                 color: primaryBlue,
               ),
             ),
+
             const SizedBox(height: 15),
+
+            // =========================
+            // GRID MENU PETUGAS
+            // shrinkWrap + NeverScrollableScrollPhysics:
+            // GRID NGIKUTIN TINGGI KONTEN, SCROLL NGIKUT PARENT
+            // =========================
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -180,13 +257,14 @@ class PetugasDashboard extends StatelessWidget {
                   Icons.keyboard_return,
                   "Update Status",
                   null,
+                  // NULL = BELUM ADA HALAMAN
                 ),
                 _buildModernMenuCard(
                   context,
                   "Stok Alat",
                   Icons.inventory_2,
                   "Kelola Keyboard",
-                  KeyboardScreen(role: "petugas"),
+                  const KeyboardScreen(role: "petugas"),
                 ),
                 _buildModernMenuCard(
                   context,
@@ -194,6 +272,7 @@ class PetugasDashboard extends StatelessWidget {
                   Icons.bar_chart,
                   "Data Bulanan",
                   null,
+                  // NULL = BELUM ADA HALAMAN
                 ),
               ],
             ),
@@ -203,7 +282,9 @@ class PetugasDashboard extends StatelessWidget {
     );
   }
 
-  // Helper Widgets for Petugas
+  // =====================================================
+  // CARD STATISTIK KECIL (KHUSUS PETUGAS)
+  // =====================================================
   Widget _buildCompactStatCard(
     String title,
     String value,
@@ -217,9 +298,10 @@ class PetugasDashboard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
+            // OPACITY 5% = BAYANGAN TIPIS
             blurRadius: 10,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -244,6 +326,9 @@ class PetugasDashboard extends StatelessWidget {
     );
   }
 
+  // =====================================================
+  // CARD MENU MODERN (PETUGAS)
+  // =====================================================
   Widget _buildModernMenuCard(
     BuildContext context,
     String title,
@@ -252,7 +337,9 @@ class PetugasDashboard extends StatelessWidget {
     Widget? target,
   ) {
     return InkWell(
+      // INKWELL = BISA DIKLIK + EFEK RIPPLE
       onTap: () {
+        // NAVIGASI HANYA JIKA TARGET TIDAK NULL
         if (target != null) {
           Navigator.push(
             context,
@@ -267,16 +354,17 @@ class PetugasDashboard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
-            )
+            ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(
-              backgroundColor: backgroundBlue.withValues(alpha: 0.2),
+              // LINGKARAN ICON
+              backgroundColor: Colors.black.withOpacity(0.05),
               child: Icon(icon, color: primaryBlue),
             ),
             const SizedBox(height: 10),
@@ -288,11 +376,6 @@ class PetugasDashboard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              "",
-              style: TextStyle(fontSize: 10, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
             Text(
               subtitle,
               style: const TextStyle(fontSize: 10, color: Colors.grey),
@@ -305,7 +388,9 @@ class PetugasDashboard extends StatelessWidget {
   }
 }
 
-// ================= DASHBOARD PEMINJAM =================
+// =====================================================
+// 3) DASHBOARD PEMINJAM
+// =====================================================
 class PeminjamDashboard extends StatelessWidget {
   const PeminjamDashboard({super.key});
 
@@ -319,27 +404,35 @@ class PeminjamDashboard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // =========================
+            // BANNER/LOGO
+            // =========================
             Container(
-              width: double.infinity,
+              width: double.infinity, // FULL LEBAR
               height: 140,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: const [
-                  BoxShadow(color: Colors.black12, blurRadius: 10)
+                  BoxShadow(color: Colors.black12, blurRadius: 10),
                 ],
               ),
               child: ClipRRect(
+                // POTONG CHILD SESUAI BORDER RADIUS
                 borderRadius: BorderRadius.circular(20),
                 child: Image.asset(
                   'assets/logo.png',
                   fit: BoxFit.contain,
+                  // JIKA ASSET TIDAK ADA -> TAMPILKAN ICON
                   errorBuilder: (context, error, stackTrace) =>
                       const Center(child: Icon(Icons.image, size: 50)),
                 ),
               ),
             ),
+
             const SizedBox(height: 25),
+
+            // JUDUL SECTION
             const Text(
               "Aksi Cepat",
               style: TextStyle(
@@ -348,18 +441,20 @@ class PeminjamDashboard extends StatelessWidget {
                 color: primaryBlue,
               ),
             ),
+
             const SizedBox(height: 15),
 
-            // MENU 1
+            // MENU PANJANG: LIHAT DAFTAR KEYBOARD
             _buildLongMenu(
               context,
               "Lihat Daftar Keyboard",
               Icons.search,
-              KeyboardScreen(role: "peminjam"),
+              const KeyboardScreen(role: "peminjam"),
             ),
 
-            // MENU STATUS
             const SizedBox(height: 12),
+
+            // MENU PANJANG: STATUS PEMINJAMAN
             _buildLongMenu(
               context,
               "Lihat Status Peminjaman",
@@ -368,6 +463,8 @@ class PeminjamDashboard extends StatelessWidget {
             ),
 
             const SizedBox(height: 25),
+
+            // JUDUL SECTION
             const Text(
               "Status Peminjaman Terkini",
               style: TextStyle(
@@ -376,7 +473,10 @@ class PeminjamDashboard extends StatelessWidget {
                 color: primaryBlue,
               ),
             ),
+
             const SizedBox(height: 15),
+
+            // STATUS REALTIME USER
             _buildStatusRealtime(),
           ],
         ),
@@ -384,19 +484,29 @@ class PeminjamDashboard extends StatelessWidget {
     );
   }
 
+  // =====================================================
+  // STATUS REALTIME: AMBIL PERMINTAAN TERAKHIR USER LOGIN
+  // =====================================================
   Widget _buildStatusRealtime() {
     final user = supabase.auth.currentUser;
+    // USER LOGIN SAAT INI (BISA NULL KALO BELUM LOGIN)
+
     return StreamBuilder(
       stream: supabase
           .from('permintaan')
           .stream(primaryKey: ['id_permintaan'])
           .eq('id_user', user?.id ?? '')
+          // FILTER: HANYA PERMINTAAN MILIK USER LOGIN
           .order('created_at'),
+      // URUT BERDASARKAN created_at (DEFAULT ASC)
+
       builder: (context, snapshot) {
+        // KALO DATA KOSONG/BLM ADA: TAMPILKAN TEKS
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text("Belum ada riwayat peminjaman"));
         }
 
+        // AMBIL DATA PALING AKHIR (PALING BARU SETELAH DI-ORDER)
         final data = snapshot.data!.last;
 
         return _buildStatusCard(
@@ -409,7 +519,9 @@ class PeminjamDashboard extends StatelessWidget {
   }
 }
 
-// ================= HELPER WIDGETS =================
+// =====================================================
+// HELPER WIDGETS (DIPAKAI BERBAGAI DASHBOARD)
+// =====================================================
 
 AppBar _buildAppBar(
   BuildContext context,
@@ -418,6 +530,7 @@ AppBar _buildAppBar(
   String nama,
 ) {
   final user = supabase.auth.currentUser;
+  // DIPAKAI BUAT FILTER KERANJANG/USER DATA
 
   return AppBar(
     backgroundColor: Colors.transparent,
@@ -431,6 +544,9 @@ AppBar _buildAppBar(
       ),
     ),
     actions: [
+      // =================================================
+      // ROLE PEMINJAM: ICON KERANJANG + BADGE JUMLAH ITEM
+      // =================================================
       if (role == "peminjam")
         StreamBuilder(
           stream: supabase
@@ -438,7 +554,7 @@ AppBar _buildAppBar(
               .stream(primaryKey: ['id_keranjang'])
               .eq('id_user', user?.id ?? ''),
           builder: (context, snapshot) {
-            int count = snapshot.hasData ? snapshot.data!.length : 0;
+            final count = snapshot.hasData ? snapshot.data!.length : 0;
             return _buildBadgeIcon(
               context,
               Icons.shopping_cart,
@@ -452,6 +568,10 @@ AppBar _buildAppBar(
             );
           },
         ),
+
+      // =================================================
+      // ROLE PETUGAS: ICON NOTIF + BADGE PERMINTAAN MENUNGGU
+      // =================================================
       if (role == "petugas")
         StreamBuilder(
           stream: supabase
@@ -459,7 +579,7 @@ AppBar _buildAppBar(
               .stream(primaryKey: ['id_permintaan'])
               .eq('status', 'menunggu'),
           builder: (context, snapshot) {
-            int count = snapshot.hasData ? snapshot.data!.length : 0;
+            final count = snapshot.hasData ? snapshot.data!.length : 0;
             return _buildBadgeIcon(
               context,
               Icons.notifications,
@@ -468,30 +588,61 @@ AppBar _buildAppBar(
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const KonfirmasiPetugasPage()),
+                    builder: (_) => const KonfirmasiPetugasPage(),
+                  ),
                 );
               },
             );
           },
         ),
-      Padding(
-        padding: const EdgeInsets.only(right: 10),
-        child: IconButton(
-          icon: const Icon(Icons.account_circle, color: Colors.white, size: 35),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProfileScreen(role: role, nama: nama),
+
+      // =================================================
+      // PROFILE ICON: AMBIL FULL USER DATA DARI TABEL 'users'
+      // FIX UTAMA: ProfileScreen BUTUH fullUserData
+      // =================================================
+      StreamBuilder<List<Map<String, dynamic>>>(
+        stream: supabase
+            .from('users') // KALO NAMA TABEL BEDA, GANTI DI SINI
+            .stream(primaryKey: ['id'])
+            .eq('id', user?.id ?? ''),
+        builder: (context, snap) {
+          // AMBIL DATA USER (MAP) ATAU MAP KOSONG BIAR GA CRASH
+          final fullUserData = (snap.hasData && snap.data!.isNotEmpty)
+              ? snap.data!.first
+              : <String, dynamic>{};
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: IconButton(
+              icon: const Icon(
+                Icons.account_circle,
+                color: Colors.white,
+                size: 35,
               ),
-            );
-          },
-        ),
+              onPressed: () {
+                // NAVIGASI KE PROFILE SCREEN
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(
+                      role: role,
+                      nama: nama,
+                      fullUserData: fullUserData,
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
     ],
   );
 }
 
+// =====================================================
+// BADGE ICON: ICON + ANGKA DI POJOK (KERANJANG/NOTIF)
+// =====================================================
 Widget _buildBadgeIcon(
   BuildContext context,
   IconData icon,
@@ -521,6 +672,9 @@ Widget _buildBadgeIcon(
   );
 }
 
+// =====================================================
+// CARD STATISTIK BESAR (ADMIN)
+// =====================================================
 Widget _buildStatCard(String title, String value) {
   return Container(
     padding: const EdgeInsets.all(20),
@@ -529,9 +683,9 @@ Widget _buildStatCard(String title, String value) {
       borderRadius: BorderRadius.circular(20),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
+          color: Colors.black.withOpacity(0.05),
           blurRadius: 10,
-        )
+        ),
       ],
     ),
     child: Row(
@@ -558,6 +712,9 @@ Widget _buildStatCard(String title, String value) {
   );
 }
 
+// =====================================================
+// MENU GRID (KOTAK) UNTUK ADMIN
+// =====================================================
 Widget _buildMenuCard(
   BuildContext context,
   String title,
@@ -566,6 +723,7 @@ Widget _buildMenuCard(
 ) {
   return InkWell(
     onTap: () {
+      // NAVIGASI HANYA JIKA targetScreen ADA
       if (targetScreen != null) {
         Navigator.push(
           context,
@@ -579,16 +737,16 @@ Widget _buildMenuCard(
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-          )
+          ),
         ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircleAvatar(
-            backgroundColor: backgroundBlue.withValues(alpha: 0.3),
+            backgroundColor: backgroundBlue.withOpacity(0.03),
             radius: 30,
             child: Icon(icon, size: 35, color: primaryBlue),
           ),
@@ -607,6 +765,9 @@ Widget _buildMenuCard(
   );
 }
 
+// =====================================================
+// MENU PANJANG (LISTTILE) UNTUK PEMINJAM
+// =====================================================
 Widget _buildLongMenu(
   BuildContext context,
   String title,
@@ -620,13 +781,14 @@ Widget _buildLongMenu(
       borderRadius: BorderRadius.circular(15),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
+          color: Colors.black.withOpacity(0.05),
           blurRadius: 5,
-        )
+        ),
       ],
     ),
     child: ListTile(
       onTap: () {
+        // NAVIGASI HANYA JIKA HALAMAN ADA
         if (targetScreen != null) {
           Navigator.push(
             context,
@@ -647,6 +809,9 @@ Widget _buildLongMenu(
   );
 }
 
+// =====================================================
+// CARD STATUS PEMINJAMAN (ITEM + BADGE STATUS + TANGGAL)
+// =====================================================
 Widget _buildStatusCard(String item, String status, String date) {
   return Container(
     padding: const EdgeInsets.all(20),
@@ -655,9 +820,9 @@ Widget _buildStatusCard(String item, String status, String date) {
       borderRadius: BorderRadius.circular(20),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
+          color: Colors.black.withOpacity(0.05),
           blurRadius: 10,
-        )
+        ),
       ],
     ),
     child: Column(
@@ -675,6 +840,7 @@ Widget _buildStatusCard(String item, String status, String date) {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // BADGE STATUS: WARNA BERUBAH SESUAI STATUS
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
               decoration: BoxDecoration(
@@ -692,6 +858,8 @@ Widget _buildStatusCard(String item, String status, String date) {
                 ),
               ),
             ),
+
+            // TANGGAL
             Row(
               children: [
                 const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
@@ -701,7 +869,7 @@ Widget _buildStatusCard(String item, String status, String date) {
                   style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
               ],
-            )
+            ),
           ],
         ),
       ],

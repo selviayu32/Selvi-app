@@ -10,16 +10,20 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // Controller untuk menangkap input teks dari user
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  
+  // Memanggil service backend/auth
   final _authService = AuthService();
 
+  // State untuk mengontrol UI (loading dan visibilitas password)
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
-  /// Fungsi untuk menangani proses login
+  /// Fungsi utama untuk menangani proses autentikasi
   void _handleLogin() async {
-    // 1. Validasi: Pastikan input tidak kosong
+    // 1. Validasi Input: Mencegah request ke server jika field masih kosong
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -30,25 +34,28 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // Mengaktifkan indikator loading
     setState(() => _isLoading = true);
 
     try {
-      // 2. Proses login melalui AuthService
+      // 2. Memanggil fungsi login pada AuthService
+      // Menunggu kembalian data berupa Map user dari database
       final user = await _authService.login(
         _emailController.text.trim(),
         _passwordController.text,
       );
 
+      // Cek apakah widget masih ada di layar (cegah error navigasi setelah async)
       if (!mounted) return;
       setState(() => _isLoading = false);
 
       if (user != null) {
-        // 3. Ambil data profil (nama dan role) dari Map yang dikembalikan database
-        // Gunakan .toString() dan .toLowerCase() agar perbandingan role tidak sensitif huruf besar/kecil
+        // 3. Ekstraksi Data: Ambil role dan nama dari response database
+        // Gunakan toLowerCase agar pengecekan role lebih aman dari typo huruf kapital
         String role = user['role']?.toString().toLowerCase() ?? 'peminjam';
         String nama = user['nama_lengkap'] ?? "User";
 
-        // Tampilkan pesan sukses
+        // Feedback visual saat login berhasil
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Selamat Datang, $nama!"),
@@ -57,7 +64,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        // 4. LOGIKA NAVIGASI BERDASARKAN ROLE
+        // 4. LOGIKA NAVIGASI ROLE-BASED
+        // Mengarahkan user ke halaman dashboard yang sesuai dengan wewenang mereka
         if (role == 'admin') {
           Navigator.pushReplacement(
             context,
@@ -69,24 +77,25 @@ class _LoginScreenState extends State<LoginScreen> {
             MaterialPageRoute(builder: (context) => const PetugasDashboard()),
           );
         } else {
-          // Default untuk role 'peminjam' atau 'siswa'
+          // Default untuk 'peminjam' atau jika role tidak terdefinisi spesifik
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const PeminjamDashboard()),
           );
         }
       } else {
-        // Jika AuthService mengembalikan null (Auth gagal atau Profil tidak ditemukan)
+        // Jika user tidak ditemukan di database atau password salah
         _showErrorSnackBar("Email atau Kata Sandi Salah!");
       }
     } catch (e) {
+      // Menangani error tak terduga (masalah jaringan, server down, dll)
       if (!mounted) return;
       setState(() => _isLoading = false);
       _showErrorSnackBar("Terjadi kesalahan sistem. Silakan coba lagi.");
     }
   }
 
-  /// Helper untuk menampilkan pesan error
+  /// Fungsi pembantu (helper) untuk menampilkan snackbar error warna merah
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -96,6 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // Menghapus controller dari memori saat layar ditutup untuk mencegah memory leak
   @override
   void dispose() {
     _emailController.dispose();
@@ -106,15 +116,16 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFAECBFA), // Biru latar belakang
+      backgroundColor: const Color(0xFFAECBFA), // Warna dasar biru aplikasi
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Center(
           child: SingleChildScrollView(
+            // SingleChildScrollView agar layout tidak error (overflow) saat keyboard muncul
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo Aplikasi
+                // Identitas Visual Aplikasi
                 Image.asset('assets/logo.png', width: 150),
                 const SizedBox(height: 20),
                 const Text(
@@ -128,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 30),
                 
-                // INPUT FIELD EMAIL
+                // FIELD INPUT EMAIL
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -144,12 +155,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 15),
 
-                // INPUT FIELD PASSWORD
+                // FIELD INPUT PASSWORD
                 TextField(
                   controller: _passwordController,
-                  obscureText: !_isPasswordVisible,
+                  obscureText: !_isPasswordVisible, // Menyembunyikan karakter password
                   textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _handleLogin(), // Bisa login lewat tombol enter di keyboard
+                  onSubmitted: (_) => _handleLogin(), // Shortcut login dengan tombol 'Done' keyboard
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
@@ -164,14 +175,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 25),
 
-                // TOMBOL LOGIN
+                // TOMBOL LOGIN UTAMA
                 SizedBox(
                   width: double.infinity,
                   height: 55,
                   child: ElevatedButton(
+                    // Tombol mati (null) jika sedang dalam proses loading
                     onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF607D8B), // Warna Blue Grey
+                      backgroundColor: const Color(0xFF607D8B), // Warna Blue Grey profesional
                       foregroundColor: Colors.white,
                       elevation: 5,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),

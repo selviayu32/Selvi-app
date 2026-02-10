@@ -10,6 +10,7 @@ class PermintaanPage extends StatefulWidget {
 }
 
 class _PermintaanPageState extends State<PermintaanPage> {
+  // Inisialisasi client Supabase untuk akses database
   final supabase = Supabase.instance.client;
 
   @override
@@ -30,20 +31,25 @@ class _PermintaanPageState extends State<PermintaanPage> {
         ),
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
+        // Menggunakan Stream agar daftar permintaan update secara real-time tanpa refresh
         stream: supabase
             .from('permintaan')
             .stream(primaryKey: ['id_permintaan'])
             .order('id_permintaan', ascending: false),
         builder: (context, snapshot) {
+          // Penanganan jika terjadi error pada koneksi atau query
           if (snapshot.hasError) {
             return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.white)));
           }
 
+          // Loading state saat data sedang diambil pertama kali
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator(color: Colors.white));
           }
 
           final listPermintaan = snapshot.data!;
+          
+          // Tampilan jika tabel permintaan di database kosong
           if (listPermintaan.isEmpty) {
             return const Center(
               child: Text("Tidak ada permintaan masuk", style: TextStyle(color: Colors.white)),
@@ -57,6 +63,7 @@ class _PermintaanPageState extends State<PermintaanPage> {
               final item = listPermintaan[index];
 
               return FutureBuilder(
+                // Mengambil detail user (nama) dan alat karena data awal hanya berisi ID (Foreign Key)
                 future: _getDetailPermintaan(item['id_permintaan']),
                 builder: (context, AsyncSnapshot<Map<String, dynamic>> snap) {
                   if (!snap.hasData) return const SizedBox();
@@ -65,9 +72,11 @@ class _PermintaanPageState extends State<PermintaanPage> {
                   final alat = data['alat'] ?? {};
                   final user = data['user'] ?? {'nama_lengkap': 'User'};
 
+                  // Parsing tanggal ke format yang mudah dibaca
                   String tglPinjam = _formatDate(data['tgl_pinjam']);
                   String tglKembali = _formatDate(data['tgl_kembali_rencana']);
 
+                  // Penentuan warna UI berdasarkan status transaksi
                   Color statusColor = data['status'] == 'disetujui'
                       ? Colors.green
                       : (data['status'] == 'ditolak' ? Colors.red : Colors.orange);
@@ -121,6 +130,7 @@ class _PermintaanPageState extends State<PermintaanPage> {
                           ),
                           const SizedBox(height: 10),
 
+                          // Tombol Aksi hanya muncul jika status masih 'menunggu'
                           if (data['status'] == 'menunggu')
                             Row(
                               children: [
@@ -158,13 +168,16 @@ class _PermintaanPageState extends State<PermintaanPage> {
   }
 
   // ================== AMBIL DATA PERMINTAAN + USER ===================
+  // Fungsi join manual untuk mendapatkan info lengkap peminjam dan alat
   Future<Map<String, dynamic>> _getDetailPermintaan(int id) async {
+    // Ambil data permintaan dan joinkan dengan tabel alat
     final permintaan = await supabase
         .from('permintaan')
         .select('*, alat(*)')
         .eq('id_permintaan', id)
         .single();
 
+    // Ambil nama user dari tabel profil kustom (users) berdasarkan UUID auth
     final user = await supabase
         .from('users')
         .select('nama_lengkap')
@@ -175,11 +188,13 @@ class _PermintaanPageState extends State<PermintaanPage> {
     return permintaan;
   }
 
+  // Helper format tanggal
   String _formatDate(String? dateStr) {
     if (dateStr == null) return "-";
     return DateFormat('d MMM yyyy').format(DateTime.parse(dateStr));
   }
 
+  // Helper UI untuk menampilkan label tanggal
   Widget _infoTanggal(String label, String tgl) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,18 +205,23 @@ class _PermintaanPageState extends State<PermintaanPage> {
     );
   }
 
-  // ================== PROSES SETUJU / TOLAK ===================
+  // ================== PROSES LOGIKA SETUJU / TOLAK ===================
   Future<void> _prosesKeputusan(int idPermintaan, String status, int idAlat) async {
     try {
+      // 1. Update status di tabel permintaan
       await supabase.from('permintaan').update({'status': status}).eq('id_permintaan', idPermintaan);
 
+      // 2. Jika disetujui, jalankan alur peminjaman alat
       if (status == 'disetujui') {
+        // Tandai alat sebagai 'dipinjam' agar tidak bisa dipesan orang lain
         await supabase.from('alat').update({'status': 'dipinjam'}).eq('id_alat', idAlat);
 
+        // Ambil data asli permintaan untuk dipindahkan ke tabel peminjaman
         final reqData = await supabase.from('permintaan').select().eq('id_permintaan', idPermintaan).single();
 
+        // Masukkan data ke tabel peminjaman (History & Aktif)
         await supabase.from('peminjaman').insert({
-          'id_user': reqData['id_user'], // UUID
+          'id_user': reqData['id_user'], // UUID Peminjam
           'id_alat': reqData['id_alat'],
           'tgl_pinjam': reqData['tgl_pinjam'],
           'tgl_kembali_rencana': reqData['tgl_kembali_rencana'],
@@ -211,12 +231,16 @@ class _PermintaanPageState extends State<PermintaanPage> {
         });
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Permintaan $status")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Permintaan $status")),
+        );
+      }
     } catch (e) {
       debugPrint("Error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Terjadi kesalahan")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Terjadi kesalahan")));
+      }
     }
   }
 }

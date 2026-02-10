@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
-// TAMBAH IMPORT STATUS PAGE
+// TAMBAH IMPORT STATUS PAGE: Menghubungkan ke halaman riwayat status
 import 'status_page.dart';
 
 class KeranjangPage extends StatefulWidget {
@@ -14,21 +14,26 @@ class KeranjangPage extends StatefulWidget {
 
 class _KeranjangPageState extends State<KeranjangPage> {
   final supabase = Supabase.instance.client;
+  
+  // Variabel untuk menyimpan tanggal yang dipilih user
   DateTime tglPinjam = DateTime.now();
   DateTime tglKembali = DateTime.now().add(const Duration(days: 2));
   bool isLoading = false;
 
+  // ================= FUNGSI PILIH TANGGAL =================
+  // Menampilkan kalender saat user ingin mengubah tanggal pinjam atau kembali.
   Future<void> _selectDate(BuildContext context, bool isPinjam) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: isPinjam ? tglPinjam : tglKembali,
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now(), // Tidak bisa pilih tanggal yang sudah lewat
       lastDate: DateTime(2101),
     );
     if (picked != null) {
       setState(() {
         if (isPinjam) {
           tglPinjam = picked;
+          // Validasi otomatis: tgl kembali tidak boleh sebelum tgl pinjam
           if (tglKembali.isBefore(tglPinjam)) {
             tglKembali = tglPinjam.add(const Duration(days: 1));
           }
@@ -41,6 +46,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Mengecek apakah user sudah login atau belum
     final user = supabase.auth.currentUser;
     if (user == null) return const Scaffold(body: Center(child: Text("Belum login")));
 
@@ -61,8 +67,10 @@ class _KeranjangPageState extends State<KeranjangPage> {
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : Column(
               children: [
+                // ================= DAFTAR ALAT DI KERANJANG =================
                 Expanded(
                   child: StreamBuilder<List<Map<String, dynamic>>>(
+                    // Stream: Memantau database secara real-time (jika hapus barang, langsung hilang)
                     stream: supabase
                         .from('keranjang')
                         .stream(primaryKey: ['id_keranjang'])
@@ -84,6 +92,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
                         itemCount: data.length,
                         itemBuilder: (context, index) {
                           final item = data[index];
+                          // FutureBuilder: Mengambil detail nama alat berdasarkan ID dari tabel alat
                           return FutureBuilder(
                             future: supabase
                                 .from('alat')
@@ -116,6 +125,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
                                   trailing: IconButton(
                                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                                     onPressed: () async {
+                                      // Fungsi menghapus item dari keranjang
                                       await supabase
                                           .from('keranjang')
                                           .delete()
@@ -132,6 +142,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
                   ),
                 ),
 
+                // ================= BAGIAN PANEL BAWAH (INPUT TANGGAL & TOMBOL) =================
                 Container(
                   padding: const EdgeInsets.all(25),
                   decoration: const BoxDecoration(
@@ -146,8 +157,10 @@ class _KeranjangPageState extends State<KeranjangPage> {
                   ),
                   child: Column(
                     children: [
+                      // Komponen pilih tanggal pinjam
                       _buildDateTile("Tanggal Pinjam", tglPinjam, () => _selectDate(context, true)),
                       const SizedBox(height: 12),
+                      // Komponen pilih rencana tanggal kembali
                       _buildDateTile("Rencana Kembali", tglKembali, () => _selectDate(context, false)),
                       const SizedBox(height: 25),
                       SizedBox(
@@ -172,6 +185,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
     );
   }
 
+  // Widget kecil untuk menampilkan baris tanggal yang bisa diklik
   Widget _buildDateTile(String label, DateTime date, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
@@ -202,10 +216,13 @@ class _KeranjangPageState extends State<KeranjangPage> {
     );
   }
 
+  // ================= FUNGSI PROSES PINJAM =================
+  // Memindahkan data dari tabel 'keranjang' ke tabel 'permintaan'
   Future<void> _ajukanPermintaan() async {
     final user = supabase.auth.currentUser;
     final keranjangCek = await supabase.from('keranjang').select().eq('id_user', user!.id);
 
+    // Cek jika tombol ditekan saat keranjang kosong
     if (keranjangCek.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Keranjang Anda masih kosong!")));
       return;
@@ -215,20 +232,23 @@ class _KeranjangPageState extends State<KeranjangPage> {
     try {
       final keranjangData = await supabase.from('keranjang').select().eq('id_user', user.id);
 
+      // Looping: Memasukkan setiap item di keranjang ke tabel permintaan peminjaman
       for (var item in keranjangData) {
         await supabase.from('permintaan').insert({
           'id_user': user.id,
           'id_alat': item['id_alat'],
-          'status': 'menunggu',
+          'status': 'menunggu', // Status awal adalah menunggu konfirmasi petugas
           'tgl_pinjam': tglPinjam.toIso8601String(),
           'tgl_kembali_rencana': tglKembali.toIso8601String(),
           'created_at': DateTime.now().toIso8601String(),
         });
       }
 
+      // Hapus semua isi keranjang karena sudah berubah jadi permintaan
       await supabase.from('keranjang').delete().eq('id_user', user.id);
 
       if (mounted) {
+        // Pindah ke halaman sukses dan hapus riwayat halaman sebelumnya (biar tidak bisa back ke keranjang)
         Navigator.pushAndRemoveUntil(
           context, 
           MaterialPageRoute(builder: (context) => const SuksesPage()),
@@ -244,6 +264,7 @@ class _KeranjangPageState extends State<KeranjangPage> {
 }
 
 // ================= HALAMAN SUKSES =================
+// Tampilan setelah user berhasil mengajukan peminjaman.
 class SuksesPage extends StatelessWidget {
   const SuksesPage({super.key});
 
@@ -257,6 +278,7 @@ class SuksesPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Ikon Centang Hijau
             Container(
               padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
@@ -272,6 +294,7 @@ class SuksesPage extends StatelessWidget {
               style: TextStyle(color: Colors.white, fontSize: 15, height: 1.5),
             ),
             const SizedBox(height: 40),
+            // Tombol untuk lanjut melihat status/riwayat pinjam
             SizedBox(
               width: 200,
               height: 50,
@@ -282,7 +305,7 @@ class SuksesPage extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
                 onPressed: () {
-                  // 🔥 BUKA STATUS PAGE
+                  // Membuka StatusPage (Pastikan StatusPage sudah dibuat)
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (_) => const StatusPage()),
