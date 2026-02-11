@@ -20,7 +20,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
 
   Future<Map<String, dynamic>> _fetchItem(dynamic idAlat) async {
     final res =
-        await supabase.from('alat').select().eq('id_alat', idAlat).single();
+        await supabase.from('alat').select().eq('id_alat', idAlat).single();//
     return res as Map<String, dynamic>;
   }
 
@@ -80,7 +80,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
           const SizedBox(height: 10),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
+              stream: supabase.from('alat').stream(primaryKey: ['id_alat']),//
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
@@ -224,7 +224,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     );
   }
 
-  Widget _buildProductCard(
+  Widget _buildProductCard(//UNTUK MENAMPILKAN DATA KEYBOARD DALAM BENTUK KARTU
     dynamic idAlat,
     String merk,
     String status,
@@ -232,14 +232,14 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     String spesifikasi,
     String userRole,
   ) {
-    final bool isAvailable = status.toLowerCase() == 'tersedia';
+    final bool isAvailable = status.toLowerCase() == 'tersedia'; //
 
     return InkWell(
       onTap: () async {
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => KeyboardDetailScreen(
+            builder: (context) => KeyboardDetailScreen( //MENGARAHKAN BILA KITA PENCET KEYBOARD LALU KE HALAMAN DETAIL KEYBOARD
               idAlat: idAlat,
               merk: merk,
               status: status,
@@ -250,11 +250,11 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
           ),
         );
 
-        if (result == true && mounted) {
+        if (result == true && mounted) {  //JIKA ADA PERUBAHAN DI HALAMAN DETAIL LANGSUNG REFRESH DATA DARI HALAMAN SEBELUMNYA 
           setState(() {});
         }
       },
-      borderRadius: BorderRadius.circular(15),
+      borderRadius: BorderRadius.circular(15), 
       child: Container(
         margin: const EdgeInsets.only(bottom: 15),
         padding: const EdgeInsets.all(12),
@@ -273,7 +273,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: imageUrl.isNotEmpty
+              child: imageUrl.isNotEmpty //MENAMPILKAN GAMBAR SESUAI URL YNG DI KIRIMKAN DARI DATABASE
                   ? Image.network(
                       imageUrl,
                       width: 100,
@@ -315,19 +315,19 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      if (userRole == "peminjam" && isAvailable)
+                      if (userRole == "peminjam" && isAvailable)//JIKA YANG LOGIN PEMINJAM MAKA TAMPILAN ICON KERANJANG 
                         IconButton(
                           icon: const Icon(Icons.shopping_cart,
                               color: Colors.blue, size: 24),
                           onPressed: () => _addToCart(idAlat),
                         ),
-                      if (userRole == "petugas")
+                      if (userRole == "petugas") //JIKA YANGA LOGIN ADALAH PETUGAS MAKA TAMPILAN ICON NOTIFIKASI 
                         IconButton(
                           icon: const Icon(Icons.notifications_active,
                               color: Colors.orange, size: 24),
                           onPressed: () => _approveRequest(idAlat),
                         ),
-                      if (userRole == "admin")
+                      if (userRole == "admin") //JIKA YANG LOGIN ADALAH ADMIN MAKA TAMPILAN ICON DELETE 
                         IconButton(
                           icon: const Icon(Icons.delete,
                               color: Colors.red, size: 24),
@@ -346,7 +346,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
 
   Future<void> _addToCart(dynamic idAlat) async {
     try {
-      await supabase.from('keranjang').insert({
+      await supabase.from('keranjang').insert({ // ,MENAMBAHKAN DATA KE TABEL KERANJANG 
         'id_alat': idAlat,
         'id_user': supabase.auth.currentUser!.id,
       });
@@ -362,14 +362,14 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     }
   }
 
-  Future<void> _approveRequest(dynamic idAlat) async {
+  Future<void> _approveRequest(dynamic idAlat) async { //UNTUK MENYETUJUI PERMINTAAN PEMINJAMAN OLEH PETUGAS 
     await supabase
         .from('permintaan')
         .update({'status': 'disetujui'})
         .eq('id_alat', idAlat);
   }
 
-  Future<void> _deleteKeyboard(dynamic idAlat) async {
+  Future<void> _deleteKeyboard(dynamic idAlat) async { //UNTUK MENGHAPUS DATA KEYBOARD DARI DATABASE JIKA YANG LOGIN ADALAH ADMIN 
     final bool? confirm = await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -389,7 +389,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     );
 
     if (confirm == true) {
-      await supabase.from('alat').delete().eq('id_alat', idAlat);
+      await supabase.from('alat').delete().eq('id_alat', idAlat); //MENGAHPUYS DATA BERDASARKAN ID YANG DI KIRIMKAN 
       if (mounted) setState(() {});
     }
   }

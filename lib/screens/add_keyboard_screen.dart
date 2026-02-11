@@ -14,28 +14,36 @@ class AddKeyboardScreen extends StatefulWidget {
 
 class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
   // --- WARNA TEMA ---
+  // INI ADALAH VARIABEL DENGAN TIPE DATA Color
   final Color primaryBlue = const Color(0xFF5371A5);
   final Color backgroundBlue = const Color(0xFFAECBFA);
 
   // --- CONTROLLER & STATE ---
-  // Controller buat ambil apa yang diketik user di form
+  // INI ADALAH VARIABEL DENGAN TIPE DATA TextEditingController
   final TextEditingController _merkController = TextEditingController();
   final TextEditingController _specController = TextEditingController();
-  String _selectedCategory = 'Gaming'; // Default kategori yang kepilih
+  
+  // INI ADALAH VARIABEL DENGAN TIPE DATA String
+  String _selectedCategory = 'Gaming'; 
 
-  // GlobalKey buat validasi form (biar ketahuan kalau ada field yang belum diisi)
+  // INI ADALAH VARIABEL DENGAN TIPE DATA GlobalKey<FormState>
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   // --- VARIABEL FOTO ---
-  // Kita simpan foto dalam bentuk bytes biar fleksibel (bisa diproses di web/mobile)
+  // INI ADALAH VARIABEL DENGAN TIPE DATA Uint8List (UNTUK SIMPAN BYTES GAMBAR)
   Uint8List? _selectedImageBytes;
+  // INI ADALAH VARIABEL DENGAN TIPE DATA XFile
   XFile? _selectedXFile;
+  // variabel tipe data image [picker]
   final ImagePicker _picker = ImagePicker();
 
-  bool _isSubmitting = false; // Status loading saat proses simpan ke database
+  // INI ADALAH VARIABEL DENGAN TIPE DATA bool (BOOLEAN)
+  bool _isSubmitting = false; 
 
   // --- MAPPING KATEGORI ---
-  // Ngubah teks kategori jadi angka ID sesuai urutan di tabel database
+  // INI ADALAH FUNCTION (FUNGSI) BERNAMA _mapKategoriToId
+  // MENERIMA PARAMETER 'kategori' DENGAN TIPE DATA String
+  // MENGHASILKAN OUTPUT DENGAN TIPE DATA int
   int _mapKategoriToId(String kategori) {
     switch (kategori) {
       case 'Wireless':
@@ -50,11 +58,13 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
   }
 
   // --- GENERATE KODE ASET ---
-  // Bikin kode unik otomatis (Prefix + Timestamp). 
-  // Contoh: GMN-170845... gunanya biar filter di halaman list berfungsi akurat.
+  // INI ADALAH FUNCTION (FUNGSI) BERNAMA _generateKodeAset
+  // MENGHASILKAN OUTPUT DENGAN TIPE DATA String
   String _generateKodeAset() {
+    // INI ADALAH VARIABEL LOKAL 'ts' DENGAN TIPE DATA int
     final ts = DateTime.now().millisecondsSinceEpoch;
-    String prefix = "";
+    // INI ADALAH VARIABEL LOKAL 'prefix' DENGAN TIPE DATA String
+    String prefix = ""; 
     
     if (_selectedCategory == 'Gaming') {
       prefix = "GMN";
@@ -66,11 +76,12 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
       prefix = "KB";
     }
     
-    return "$prefix-$ts";
+    return "$prefix-$ts"; // MENGEMBALIKAN (RETURN) TIPE DATA String
   }
 
   // --- FUNGSI AMBIL GAMBAR ---
-  // Buka galeri HP, ambil fotonya, terus konversi ke Bytes buat dipreview
+  // INI ADALAH FUNCTION (FUNGSI) BERNAMA _pickImage
+  // MENGGUNAKAN TIPE DATA Future<void> (KARENA ASYNCHRONOUS)
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
@@ -83,7 +94,8 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
     }
   }
 
-  // Fungsi pembantu buat nampilin pesan snackbar di bawah
+  // INI ADALAH FUNCTION (FUNGSI) BERNAMA _showSnack
+  // MENERIMA PARAMETER 'msg' DENGAN TIPE DATA String
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg)),
@@ -91,17 +103,16 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
   }
 
   // --- LOGIKA SIMPAN (SAVE) ---
+  // INI ADALAH FUNCTION (FUNGSI) BERNAMA _onSavePressed
   Future<void> _onSavePressed() async {
-    // 1. Validasi form: Pastikan semua input teks sudah diisi
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    // 2. Validasi foto: Pastikan user sudah pilih foto
     if (_selectedImageBytes == null || _selectedXFile == null) {
       _showSnack("Foto produk wajib diisi.");
       return;
     }
 
-    // 3. Konfirmasi: Munculin pop-up "Ya/Batal" sebelum beneran dikirim ke server
+    // INI ADALAH VARIABEL 'yes' DENGAN TIPE DATA bool (UNTUK DIALOG)
     final bool? yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -122,13 +133,13 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
 
     if (yes != true) return;
 
-    setState(() => _isSubmitting = true); // Mulai loading
+    setState(() => _isSubmitting = true); 
 
     try {
+      // MEMANGGIL FUNCTION DAN DISIMPAN KE VARIABEL
       final idKategori = _mapKategoriToId(_selectedCategory);
       final kodeAset = _generateKodeAset();
 
-      // 4. PROSES KE DATABASE: Manggil fungsi di AlatService buat upload foto & simpan data
       final String? err = await AlatService().tambahAlatDenganFoto(
         kodeAset: kodeAset,
         merk: _merkController.text.trim(),
@@ -146,29 +157,26 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
       }
 
       _showSnack("Berhasil menambahkan produk");
-
-      // 5. NAVIGASI: KEMBALI KE HALAMAN SEBELUMNYA (yang pakai StreamBuilder)
-      // Supaya daftar keyboard langsung update otomatis
       Navigator.pop(context);
 
     } catch (e) {
       if (!mounted) return;
       _showSnack("Gagal menambahkan produk: $e");
     } finally {
-      // Selesai proses, matikan status loading
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   void dispose() {
-    // Bersihin controller biar gak makan memori (memory leak)
     _merkController.dispose();
     _specController.dispose();
     super.dispose();
   }
 
   @override
+  // INI ADALAH FUNCTION (FUNGSI) UTAMA UNTUK UI BERNAMA build
+  // MENGHASILKAN OUTPUT DENGAN TIPE DATA Widget
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundBlue,
@@ -187,10 +195,9 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
-          key: _formKey, // Pasang kunci validasi ke form
+          key: _formKey, 
           child: Column(
             children: [
-              // INPUT MERK
               _buildInputContainer(
                 "Merk",
                 "Tambahkan Merk",
@@ -202,7 +209,6 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                 },
               ),
               const SizedBox(height: 20),
-              // INPUT SPESIFIKASI
               _buildInputContainer(
                 "Spesifikasi",
                 "Tambahkan Spesifikasi",
@@ -214,7 +220,6 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                 },
               ),
               const SizedBox(height: 20),
-              // PILIH KATEGORI (Wireless/Gaming/Kantor)
               Container(
                 padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
@@ -242,7 +247,6 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-              // BAGIAN UPLOAD FOTO (Bisa di klik buat buka galeri)
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
@@ -278,7 +282,6 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
                 Text("File: ${_selectedXFile!.name}", style: const TextStyle(color: Colors.black87)),
               ],
               const SizedBox(height: 40),
-              // TOMBOL AKSI (BATAL & SIMPAN)
               Row(
                 children: [
                   Expanded(
@@ -316,8 +319,15 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
     );
   }
 
-  // WIDGET CUSTOM: Buat bikin tampilan kotak input (biar kode gak berulang-ulang)
-  Widget _buildInputContainer(String title, String hint, TextEditingController controller, int lines, {String? Function(String?)? validator}) {
+  // --- INI ADALAH FUNCTION (FUNGSI) CUSTOM: _buildInputContainer ---
+  // MENGHASILKAN OUTPUT DENGAN TIPE DATA Widget
+  Widget _buildInputContainer(
+    String title, // PARAMETER DENGAN TIPE DATA String
+    String hint,  // PARAMETER DENGAN TIPE DATA String
+    TextEditingController controller, // PARAMETER DENGAN TIPE DATA TextEditingController
+    int lines,    // PARAMETER DENGAN TIPE DATA int
+    {String? Function(String?)? validator}
+  ) {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -340,8 +350,10 @@ class _AddKeyboardScreenState extends State<AddKeyboardScreen> {
     );
   }
 
-  // WIDGET CUSTOM: Buat bikin tombol pilihan kategori (Chip)
+  // --- INI ADALAH FUNCTION (FUNGSI) CUSTOM: _categoryChip ---
+  // MENGHASILKAN OUTPUT DENGAN TIPE DATA Widget
   Widget _categoryChip(String label) {
+    // INI ADALAH VARIABEL LOKAL 'isSelected' DENGAN TIPE DATA bool
     bool isSelected = _selectedCategory == label;
     return ChoiceChip(
       label: Text(label),

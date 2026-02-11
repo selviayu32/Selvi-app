@@ -10,13 +10,13 @@ class BerandaScreen extends StatefulWidget {
   @override
   State<BerandaScreen> createState() => _BerandaScreenState();
 }
-
+//ambil data dari supabase 
 class _BerandaScreenState extends State<BerandaScreen> {
   // Inisialisasi service dan supabase biar bisa ambil data dari database
   final alatService = AlatService();
   final supabase = Supabase.instance.client;
 
-  // --- FUNGSI TAMBAH KE KERANJANG ---
+  // --- FUNGSI TAMBAH KE KERANJANG --- // untuk menambahkan barang ke keranjang
   // Penjelasan: Fungsi ini buat masukin barang yang dipilih ke tabel 'keranjang' di Supabase
   Future<void> _tambahKeKeranjang(Map<String, dynamic> alat) async {
     final user = supabase.auth.currentUser; // Cek siapa user yang lagi login
@@ -24,7 +24,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
 
     try {
       // Masukin ID User dan ID Alat ke tabel keranjang
-      await supabase.from('keranjang').insert({
+      await supabase.from('keranjang').insert({ //ini untuk mengkonfirmasi atau mengmbil data dari supabase id user  bbrti pengguna dan id alat untuk bisa tahu alat nya apa
         'id_user': user.id,
         'id_alat': alat['id_alat'],
       });
@@ -39,7 +39,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted) { //jika tidak berhasil menambhkan ke keranjang
         // Kasih notifikasi merah kalau gagal (misal: koneksi error)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red),
@@ -81,7 +81,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
       ),
       body: Column(
         children: [
-          // --- BAR PENCARIAN ---
+          // --- BAR PENCARIAN --- //PENCARIAN KEYBOARD
           // Penjelasan: Kotak buat user ngetik nama keyboard yang dicari
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -132,7 +132,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   itemBuilder: (context, index) {
                     final alat = daftarAlat[index];
                     // Cek status, kalau 'tersedia' nanti teksnya jadi hijau
-                    bool isTersedia = alat['status'] == 'tersedia';
+                    bool isTersedia = alat['status'] == 'tersedia'; //MENGETAHUI STOK ALAT 
 
                     return Container(
                       decoration: BoxDecoration(
@@ -148,7 +148,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Tampilan Gambar Barang dari URL Supabase Storage
+                          // Tampilan Gambar Barang dari URL Supabase Storage // UNTUK MENAMPILKAN GAMBAR DARI SUPABASE DI KIRIM KE FLUTTER
                           Expanded(
                             child: ClipRRect(
                               borderRadius: const BorderRadius.vertical(
@@ -179,7 +179,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                // Tampilan Status (Tersedia / Tidak)
+                                // Tampilan Status (Tersedia / Tidak) // MENGETHUI STATUS ALAT
                                 Text(
                                   alat['status'] ?? 'N/A',
                                   style: TextStyle(
@@ -202,7 +202,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                                   backgroundColor: isTersedia ? const Color(0xFF5371A5) : Colors.grey,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                                // Klik tombol panggil fungsi tambah ke keranjang
+                                // Klik tombol panggil fungsi tambah ke keranjang // INI UNTUK MENAMBAHKAN KE KERANJANG UNTUK PENGAJUAN PERMINTAAN PEMINJAMAN 
                                 onPressed: isTersedia ? () => _tambahKeKeranjang(alat) : null,
                                 child: const Icon(Icons.add_shopping_cart, size: 18, color: Colors.white),
                               ),
@@ -218,7 +218,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
           ),
         ],
       ),
-      // --- TOMBOL TAMBAH BARANG (Floating) ---
+      // --- TOMBOL TAMBAH BARANG (Floating) --- //INI  UNTUK ADMIN MENAMBAH DATA KEYBOARD
       // Penjelasan: Tombol melayang buat admin kalau mau nambah list keyboard baru
       floatingActionButton: FloatingActionButton(
         onPressed: () {

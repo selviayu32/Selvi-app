@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/alat_service.dart';
 
-class InputAlatScreen extends StatefulWidget {
+class InputAlatScreen extends StatefulWidget { 
   const InputAlatScreen({super.key});
 
   @override
@@ -104,7 +104,7 @@ class _InputAlatScreenState extends State<InputAlatScreen> {
               // Input Merk Alat
               TextFormField(
                 controller: _merkController,
-                decoration: const InputDecoration(labelText: "Merk"),
+                decoration: const InputDecoration(labelText: "Merk"),//
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return "Merk wajib diisi";
                   return null;
@@ -140,8 +140,8 @@ class _InputAlatScreenState extends State<InputAlatScreen> {
               // Tombol Simpan
               ElevatedButton(
                 // Tombol otomatis mati (null) jika sedang proses simpan agar tidak klik dua kali.
-                onPressed: _isSubmitting ? null : _simpanAlat,
-                child: Text(_isSubmitting ? "Menyimpan..." : "Simpan ke Supabase"),
+                onPressed: _isSubmitting ? null : _simpanAlat, //UNTUK MENYIMPAN ALAT BARU KE DATABASE SUPABASE
+                child: Text(_isSubmitting ? "Menyimpan..." : "Simpan ke Supabase"), 
               ),
             ],
           ),

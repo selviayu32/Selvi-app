@@ -72,8 +72,7 @@ class AdminDashboard extends StatelessWidget {
               stream: supabase.from('alat').stream(primaryKey: ['id_alat']), //ARRAY ID ALAT DAN STRAMBUILDER//
               builder: (context, snapshot) {
                 // HITUNG JUMLAH DATA SAAT ADA, KALAU BELUM ADA -> 0
-                final total =
-                    snapshot.hasData ? snapshot.data!.length.toString() : "0";
+                final total = snapshot.hasData ? snapshot.data!.length.toString() : "0";
 
                 // TAMPILKAN DALAM CARD
                 return _buildStatCard("Total Keyboard", total);
@@ -182,9 +181,7 @@ class PetugasDashboard extends StatelessWidget {
                   child: StreamBuilder(
                     stream: supabase.from('alat').stream(primaryKey: ['id_alat']),
                     builder: (context, snapshot) {
-                      final total = snapshot.hasData
-                          ? snapshot.data!.length.toString()
-                          : "0";
+                      final total = snapshot.hasData ? snapshot.data!.length.toString() : "0";
                       return _buildCompactStatCard(
                         "Total Alat",
                         total,
@@ -200,15 +197,10 @@ class PetugasDashboard extends StatelessWidget {
                 // KARTU KANAN: PERMINTAAN MENUNGGU
                 Expanded(
                   child: StreamBuilder(
-                    stream: supabase
-                        .from('permintaan')
-                        .stream(primaryKey: ['id_permintaan'])
-                        .eq('status', 'menunggu'),
+                    stream: supabase.from('permintaan').stream(primaryKey: ['id_permintaan']).eq('status', 'menunggu'),
                     // FILTER: HANYA STATUS = 'menunggu'
                     builder: (context, snapshot) {
-                      final pending = snapshot.hasData
-                          ? snapshot.data!.length.toString()
-                          : "0";
+                      final pending = snapshot.hasData ? snapshot.data!.length.toString() : "0";
                       return _buildCompactStatCard(
                         "Pending",
                         pending,
@@ -296,11 +288,7 @@ class PetugasDashboard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             StreamBuilder(
-              stream: supabase
-                  .from('permintaan')
-                  .stream(primaryKey: ['id_permintaan'])
-                  .order('created_at')
-                  .limit(3),
+              stream: supabase.from('permintaan').stream(primaryKey: ['id_permintaan']).order('created_at').limit(3),
               builder: (context, snapshot) {
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Text("Tidak ada aktivitas");
@@ -469,8 +457,7 @@ class PeminjamDashboard extends StatelessWidget {
                   'assets/logo.png',
                   fit: BoxFit.contain,
                   // JIKA ASSET TIDAK ADA -> TAMPILKAN ICON
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Center(child: Icon(Icons.image, size: 50)),
+                  errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.image, size: 50)),
                 ),
               ),
             ),
@@ -507,13 +494,23 @@ class PeminjamDashboard extends StatelessWidget {
               const StatusPage(),
             ),
 
-            // ✅ TAMBAHAN MENU: PENGEMBALIAN (PEMINJAM)
+            // ✅ MENU: PENGEMBALIAN (PEMINJAM)
             const SizedBox(height: 12),
             _buildLongMenu(
               context,
               "Pengembalian",
               Icons.keyboard_return,
               const PengembalianPage(),
+            ),
+
+            // ✅ MENU BARU: RIWAYAT PENGEMBALIAN (PEMINJAM)
+            // (TIDAK MENGGANGGU MENU LAIN, HANYA TAMBAH)
+            const SizedBox(height: 12),
+            _buildLongMenu(
+              context,
+              "Riwayat Pengembalian",
+              Icons.history,
+              const RiwayatPengembalianPage(),
             ),
 
             const SizedBox(height: 25),
@@ -541,6 +538,7 @@ class PeminjamDashboard extends StatelessWidget {
   // =====================================================
   // STATUS REALTIME: AMBIL PERMINTAAN TERAKHIR USER LOGIN
   // =====================================================
+  // NOTE: KODE INI TIDAK DIUBAH (BIAR FUNGSI/MODEL KAMU TETEP)
   Widget _buildStatusRealtime() {
     final user = supabase.auth.currentUser;
     // USER LOGIN SAAT INI (BISA NULL KALO BELUM LOGIN)
@@ -569,6 +567,212 @@ class PeminjamDashboard extends StatelessWidget {
           "Diajukan: ${data['created_at'].toString().substring(0, 10)}",
         );
       },
+    );
+  }
+}
+
+// =====================================================
+// ✅ PAGE BARU: RIWAYAT PENGEMBALIAN (PEMINJAM)
+// - Tujuan: user bisa lihat barang apa saja yang SUDAH dikembalikan
+// - Aman: tidak mengubah fitur lain, hanya tambahan page
+// - Cara filter:
+//   1) Ambil auth.uid
+//   2) Map ke users.id_user lewat users.auth_id
+//   3) Ambil pengembalian join permintaan -> alat
+// =====================================================
+class RiwayatPengembalianPage extends StatefulWidget {
+  const RiwayatPengembalianPage({super.key});
+
+  @override
+  State<RiwayatPengembalianPage> createState() => _RiwayatPengembalianPageState();
+}
+
+class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
+  bool loading = true;
+  String? error;
+
+  List<Map<String, dynamic>> items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRiwayat();
+  }
+
+  Future<void> _loadRiwayat() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        setState(() {
+          loading = false;
+          items = [];
+          error = "User belum login";
+        });
+        return;
+      }
+
+      // 1) map auth_id(UUID) -> users.id_user (INT)
+      final u = await supabase.from('users').select('id_user').eq('auth_id', user.id).single();
+      final int userIntId = u['id_user'];
+
+      // 2) ambil riwayat pengembalian (join ke permintaan & alat)
+      // Catatan:
+      // - pengembalian.id_pinjam mengarah ke permintaan.id_permintaan (sesuai kode kamu)
+      // - permintaan.id_alat sudah ada FK ke alat (permintaan_id_alat_fkey)
+      final res = await supabase
+          .from('pengembalian')
+          .select(
+            'id_kembali, id_pinjam, tgl_kembali_asli, kondisi_akhir, denda_terlambat, '
+            'permintaan:permintaan!pengembalian_id_pinjam_fkey(id_permintaan, id_user, id_alat, tgl_pinjam, tgl_kembali_rencana, '
+            'alat:alat!permintaan_id_alat_fkey(merk, image_url))',
+          )
+          .order('tgl_kembali_asli', ascending: false);
+
+      final list = (res is List) ? res.cast<Map<String, dynamic>>() : <Map<String, dynamic>>[];
+
+      // 3) filter di client: hanya milik user ini
+      final filtered = list.where((row) {
+        final p = row['permintaan'] as Map<String, dynamic>?;
+        if (p == null) return false;
+        return p['id_user'] == userIntId;
+      }).toList();
+
+      setState(() {
+        items = filtered;
+        loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        loading = false;
+        error = e.toString();
+      });
+    }
+  }
+
+  String _fmtDate(dynamic iso) {
+    if (iso == null) return "-";
+    final s = iso.toString();
+    return s.length >= 10 ? s.substring(0, 10) : s;
+  }
+
+  String _rp(num value) {
+    final s = value.toStringAsFixed(0);
+    final chars = s.split('');
+    final buf = StringBuffer();
+    for (int i = 0; i < chars.length; i++) {
+      final left = chars.length - i;
+      buf.write(chars[i]);
+      if (left > 1 && left % 3 == 1) buf.write('.');
+    }
+    return "Rp $buf";
+  }
+
+  Color _badgeColor(String kondisi) {
+    final k = kondisi.toLowerCase();
+    if (k.contains('baik')) return Colors.green;
+    if (k.contains('ringan')) return Colors.orange;
+    if (k.contains('berat')) return Colors.red;
+    return Colors.blueGrey;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: backgroundBlue,
+      appBar: AppBar(
+        title: const Text("Riwayat Pengembalian", style: TextStyle(color: Colors.white)),
+        backgroundColor: primaryBlue,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadRiwayat,
+          )
+        ],
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : (error != null)
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text("Gagal ambil data: $error", textAlign: TextAlign.center),
+                  ),
+                )
+              : (items.isEmpty)
+                  ? const Center(child: Text("Belum ada riwayat pengembalian"))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: items.length,
+                      itemBuilder: (context, i) {
+                        final row = items[i];
+
+                        final permintaan = row['permintaan'] as Map<String, dynamic>?;
+                        final alatWrap = permintaan?['alat'] as Map<String, dynamic>?;
+
+                        final merk = alatWrap?['merk']?.toString() ?? "Keyboard";
+                        final imageUrl = alatWrap?['image_url']?.toString();
+                        final tglKembaliAsli = _fmtDate(row['tgl_kembali_asli']);
+                        final kondisi = row['kondisi_akhir']?.toString() ?? "-";
+                        final denda = (row['denda_terlambat'] ?? 0) as num;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
+                            ],
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(12),
+                            leading: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: 70,
+                                height: 70,
+                                color: Colors.grey[200],
+                                child: (imageUrl != null && imageUrl.isNotEmpty)
+                                    ? Image.network(imageUrl, fit: BoxFit.cover)
+                                    : const Icon(Icons.keyboard, size: 34, color: Colors.grey),
+                              ),
+                            ),
+                            title: Text(
+                              merk,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: primaryBlue),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("Tanggal Kembali: $tglKembaliAsli"),
+                                  Text("Denda: ${_rp(denda)}"),
+                                ],
+                              ),
+                            ),
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _badgeColor(kondisi),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                kondisi,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
     );
   }
 }
@@ -603,10 +807,7 @@ AppBar _buildAppBar(
       // =================================================
       if (role == "peminjam")
         StreamBuilder(
-          stream: supabase
-              .from('keranjang')
-              .stream(primaryKey: ['id_keranjang'])
-              .eq('id_user', user?.id ?? ''),
+          stream: supabase.from('keranjang').stream(primaryKey: ['id_keranjang']).eq('id_user', user?.id ?? ''),
           builder: (context, snapshot) {
             final count = snapshot.hasData ? snapshot.data!.length : 0;
             return _buildBadgeIcon(
@@ -628,10 +829,7 @@ AppBar _buildAppBar(
       // =================================================
       if (role == "petugas")
         StreamBuilder(
-          stream: supabase
-              .from('permintaan')
-              .stream(primaryKey: ['id_permintaan'])
-              .eq('status', 'menunggu'),
+          stream: supabase.from('permintaan').stream(primaryKey: ['id_permintaan']).eq('status', 'menunggu'),
           builder: (context, snapshot) {
             final count = snapshot.hasData ? snapshot.data!.length : 0;
             return _buildBadgeIcon(
@@ -661,9 +859,7 @@ AppBar _buildAppBar(
             .eq('id', user?.id ?? ''),
         builder: (context, snap) {
           // AMBIL DATA USER (MAP) ATAU MAP KOSONG BIAR GA CRASH
-          final fullUserData = (snap.hasData && snap.data!.isNotEmpty)
-              ? snap.data!.first
-              : <String, dynamic>{};
+          final fullUserData = (snap.hasData && snap.data!.isNotEmpty) ? snap.data!.first : <String, dynamic>{};
 
           return Padding(
             padding: const EdgeInsets.only(right: 10),
@@ -898,9 +1094,7 @@ Widget _buildStatusCard(String item, String status, String date) {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
               decoration: BoxDecoration(
-                color: status == "DISETUJUI"
-                    ? Colors.green
-                    : Colors.orangeAccent,
+                color: status == "DISETUJUI" ? Colors.green : Colors.orangeAccent,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(

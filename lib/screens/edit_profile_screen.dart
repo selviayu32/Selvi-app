@@ -19,22 +19,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   
   // TEXT EDITING CONTROLLER: BERFUNGSI SEBAGAI "PENAMPUNG" TEKS YANG DIKETIK USER
   // LATE BERARTI VARIABEL AKAN DIINISIALISASI NANTI DI INITSTATE
-  late TextEditingController _namaController;
-  late TextEditingController _nipController;
+  late TextEditingController _namaController; // MENGEDIT NAMA LENGKAP 
+  late TextEditingController _nipController; // MENGEDIT NMIP
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   late TextEditingController _lokasiController;
 
   // VARIABEL BOOLEAN UNTUK MENANDAI APAKAH PROSES UPDATE SEDANG BERJALAN (LOADING)
-  bool _isLoading = false;
+  bool _isLoading = false; // JADI DI SIMPAN ATAU TIDAK
 
   @override
   void initState() {
-    super.initState();
+    super.initState(); 
     // INITSTATE: FUNGSI YANG DIJALANKAN PERTAMA KALI SAAT HALAMAN DIBUKA.
     // DI SINI KITA MENGISI TEKS AWAL CONTROLLER DENGAN DATA DARI DATABASE (widget.userData)
     // AGAR USER TIDAK PERLU MENGETIK ULANG DARI KOSONG.
-    _namaController = TextEditingController(text: widget.userData['nama'] ?? '');
+    _namaController = TextEditingController(text: widget.userData['nama'] ?? ''); //MENGISI NAMA LENGKAP DARI DATA USER YANG DI KIRIM DARI HALAMAN SEBELUMNYA 
     _nipController = TextEditingController(text: widget.userData['nip'] ?? '');
     _emailController = TextEditingController(text: widget.userData['email'] ?? '');
     _phoneController = TextEditingController(text: widget.userData['nomor_telepon'] ?? '');
@@ -51,7 +51,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     
     if (authId != null) {
       // MENJALANKAN FUNGSI UPDATEPROFILE DI AUTH_SERVICE DENGAN DATA DARI INPUTAN USER
-      final error = await _authService.updateProfile(
+      final error = await _authService.updateProfile( //MENGIRIM DATA YANG SUDAH DI EDIT KE AUTH SERVICE
         authId: authId,
         nama: _namaController.text,
         nip: _nipController.text,
@@ -61,12 +61,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
 
       // SETELAH PROSES SELESAI, MATIKAN LOADING
-      setState(() => _isLoading = false);
+      setState(() => _isLoading = false); //MATIKAN LOADING AGAR TOMBOL BISA DI KLIK
 
       if (error == null) {
         // JIKA TIDAK ADA ERROR, TAMPILKAN SNACKBAR (PESAN DI BAWAH LAYAR) BERHASIL
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Profil Berhasil Diperbarui!")),
+          const SnackBar(content: Text("Profil Berhasil Diperbarui!")),//MENAMPILJKAN PESAN AGAR USER TAHU PROFIL BERHASIL DI UPDATE 
         );
         // NAVIGATOR.POP(CONTEXT, TRUE): KEMBALI KE HALAMAN PROFIL DAN MEMBERI TAHU BAHWA DATA BERUBAH
         Navigator.pop(context, true); 

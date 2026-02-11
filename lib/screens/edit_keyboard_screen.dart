@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class EditKeyboardScreen extends StatefulWidget {
+class EditKeyboardScreen extends StatefulWidget { //MENGIRIM DATA DARI HALAMAN SEBELUMNYA
   final dynamic idAlat;
   final String merk;
   final String status;
@@ -41,11 +41,11 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
 
   @override
   void initState() {
-    super.initState();
+    super.initState();//INISIALISASI DATA DARI HALAMAN SEBELUMNYA 
     merkController = TextEditingController(text: widget.merk);
     spesifikasiController = TextEditingController(text: widget.spesifikasi);
 
-    // Normalisasi status awal
+    // UNTUK SET NILAI STATUS AWAL DI DROPDOWN MISAL SEBELUMNYA TERSEDIA DI PILIH JADI  TERSEDIA
     final initial = widget.status.trim().toLowerCase();
     selectedStatus = _statusOptions.contains(initial) ? initial : 'tersedia';
   }
@@ -61,7 +61,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
       return;
     }
 
-    // Validasi status (harus sesuai opsi)
+    // Validasi status (harus sesuai opsi) //HARUS SESUAI OPSI YANG ADA MAKA BARU BISA DI SIMPAN 
     if (!_statusOptions.contains(selectedStatus)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Status tidak valid")),
@@ -72,11 +72,11 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
     setState(() => isLoading = true);
 
     try {
-      await supabase.from('alat').update({
+      await supabase.from('alat').update({ //UPDATE KEYBOARD DI SUPABASE SESUAI DENGAN YANG DI EDIT 
         'merk': merk,
         'spesifikasi': spesifikasi,
         'status': selectedStatus, // sudah lowercase & konsisten
-      }).eq('id_alat', widget.idAlat);
+      }).eq('id_alat', widget.idAlat); //MEMBANTU MENGUPDATE DATA BERDASARKAN ID YANG DI KIRIMKAN 
 
       if (!mounted) return;
 
@@ -88,7 +88,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
       );
 
       // INI PENTING: kirim true agar halaman sebelumnya setState() dan update
-      Navigator.pop(context, true);
+      Navigator.pop(context, true); //MEMBERITAHJU HALAMAN SELANJUTNYA JIKA TERJADI PERUBAHN JADI AUTOREFRESH DAN TIDAK PERLU RELOAD MANUAL 
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -103,7 +103,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) { //MENGGAMBAR HALAMAN EDIT KEYBOARD JADI BISA MENGEDIT DAN MENYIMPAN PERUBAHAN 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -117,7 +117,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Preview gambar
+            // Preview gambar KEYBOARD  ATAU LOGO JADI BISA MELIHAT GAMBAR YANG SUDAH DI UPLOAD SEBELUMNYA 
             Center(
               child: Container(
                 height: 160,
@@ -132,10 +132,10 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16), 
                   child: widget.imageUrl.isNotEmpty
                       ? Image.network(
-                          widget.imageUrl,
+                          widget.imageUrl, //MENAMPILKAN GAMBAR DARI URL YANG DI KIRIMKAN PER HALAMAN SEBELUMNYA 
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => const Center(
                             child: Icon(Icons.image_not_supported,
@@ -151,7 +151,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
 
             TextField(
               controller: merkController,
-              decoration: InputDecoration(
+              decoration: InputDecoration( //UNTUK MENGEDIT MERK KEYBOARD 
                 labelText: "Merk",
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -165,7 +165,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
               controller: spesifikasiController,
               maxLines: 5,
               decoration: InputDecoration(
-                labelText: "Spesifikasi",
+                labelText: "Spesifikasi", //UNTUK MENGEDIT SPESIFIKASI KEYBOARD 
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
@@ -178,7 +178,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
             // DROPDOWN STATUS (lebih aman daripada ketik manual)
             InputDecorator(
               decoration: InputDecoration(
-                labelText: "Status",
+                labelText: "Status", //UNTUK MENGEDT STATUS KEYBOARD TERSEDIA 
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
@@ -212,14 +212,14 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
               width: double.infinity,
               height: 55,
               child: ElevatedButton(
-                onPressed: isLoading ? null : _saveChanges,
+                onPressed: isLoading ? null : _saveChanges, //MENYIMPAN PERUBAHAN YANG SUDAH DI EDIT 
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF5371A5),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                child: isLoading
+                child: isLoading //MENUNGGU PROSES SIMPAN JADI TIDAK BISA DI KLIK LAGI
                     ? const SizedBox(
                         height: 24,
                         width: 24,
@@ -227,7 +227,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
                             color: Colors.white, strokeWidth: 3),
                       )
                     : const Text(
-                        "Simpan Perubahan",
+                        "Simpan Perubahan", //TOMBOL SIMPAN PERUBAHAN
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold),
                       ),
@@ -241,7 +241,7 @@ class _EditKeyboardScreenState extends State<EditKeyboardScreen> {
 
   @override
   void dispose() {
-    merkController.dispose();
+    merkController.dispose(); //MEMBUANG DATA YANG TIDAK DI PAKAI LAGI
     spesifikasiController.dispose();
     super.dispose();
   }

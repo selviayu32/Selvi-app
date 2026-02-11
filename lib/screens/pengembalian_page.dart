@@ -17,6 +17,9 @@ class _PengembalianPageState extends State<PengembalianPage> {
   bool loading = true;
   bool submitting = false;
 
+  // ====== NEW: tanggal pengembalian dipilih user ======
+  DateTime? tglKembaliDipilih;
+
   static const Color primaryBlue = Color(0xFF5371A5);
   static const Color backgroundBlue = Color(0xFFAECBFA);
 
@@ -38,34 +41,27 @@ class _PengembalianPageState extends State<PengembalianPage> {
         return;
       }
 
-      // ==============================
-      // 1) MAP auth_id (uuid) -> users.id_user (int)
-      // ==============================
-      final userRow = await supabase
-          .from('users')
-          .select('id_user')
-          .eq('auth_id', user.id)
-          .single();
+      final authUid = user.id; // UUID
 
-      final int userIntId = userRow['id_user'];
-
-      // ==============================
-      // 2) Ambil 1 permintaan terbaru yang statusnya disetujui
-      // JOIN alat lewat FK permintaan_id_alat_fkey
-      // ==============================
       final res = await supabase
           .from('permintaan')
           .select(
-            'id_permintaan, id_alat, tgl_pinjam, tgl_kembali_rencana, status, alat:alat!permintaan_id_alat_fkey(merk, image_url)',
+            'id_permintaan, id_alat, tgl_pinjam, tgl_kembali_rencana, status, '
+            'alat:alat!permintaan_id_alat_fkey(merk, image_url), '
+            'u:users!fk_permintaan_users(auth_id)',
           )
-          .eq('id_user', userIntId)
           .eq('status', 'disetujui')
+          .eq('u.auth_id', authUid)
           .order('tgl_pinjam', ascending: false)
           .limit(1);
 
       setState(() {
         pinjamAktif =
             (res is List && res.isNotEmpty) ? (res.first as Map<String, dynamic>) : null;
+
+        // ====== NEW: default tanggal kembali = hari ini ======
+        tglKembaliDipilih ??= DateTime.now();
+
         loading = false;
       });
     } catch (e) {
@@ -81,22 +77,48 @@ class _PengembalianPageState extends State<PengembalianPage> {
     }
   }
 
+  // ====== NEW: pilih tanggal pengembalian ======
+  Future<void> _pilihTanggalKembali() async {
+    final now = DateTime.now();
+    final initial = tglKembaliDipilih ?? now;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(2035, 12, 31),
+    );
+
+    if (picked != null) {
+      setState(() => tglKembaliDipilih = picked);
+    }
+  }
+
   String _fmtDate(dynamic iso) {
     if (iso == null) return "-";
     final s = iso.toString();
     return s.length >= 10 ? s.substring(0, 10) : s;
   }
 
-  int _telatHari(dynamic tglKembaliRencana) {
+  String _fmtDateFromDt(DateTime? dt) {
+    if (dt == null) return "-";
+    final y = dt.year.toString().padLeft(4, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    return "$y-$m-$d";
+  }
+
+  // ====== UPDATED: telat dihitung dari tanggal yang dipilih ======
+  int _telatHari(dynamic tglKembaliRencana, DateTime tanggalKembali) {
     if (tglKembaliRencana == null) return 0;
     final due = DateTime.tryParse(tglKembaliRencana.toString());
     if (due == null) return 0;
 
-    final now = DateTime.now();
     final dueDate = DateTime(due.year, due.month, due.day);
-    final today = DateTime(now.year, now.month, now.day);
+    final kembaliDate =
+        DateTime(tanggalKembali.year, tanggalKembali.month, tanggalKembali.day);
 
-    final diff = today.difference(dueDate).inDays;
+    final diff = kembaliDate.difference(dueDate).inDays;
     return diff > 0 ? diff : 0;
   }
 
@@ -126,19 +148,23 @@ class _PengembalianPageState extends State<PengembalianPage> {
       return;
     }
 
+    // ====== NEW: wajib ada tanggal kembali ======
+    final kembali = tglKembaliDipilih ?? DateTime.now();
+
     setState(() => submitting = true);
 
     try {
-      // id_permintaan dipakai sebagai id_pinjam (sesuai struktur kamu sekarang)
       final idPermintaan = pinjamAktif!['id_permintaan'];
-      final telat = _telatHari(pinjamAktif!['tgl_kembali_rencana']);
+
+      final telat = _telatHari(pinjamAktif!['tgl_kembali_rencana'], kembali);
       final previewDenda = telat * 10000;
 
       final inserted = await supabase
           .from('pengembalian')
           .insert({
             'id_pinjam': idPermintaan,
-            'tgl_kembali_asli': DateTime.now().toIso8601String(),
+            // ====== UPDATED: pakai tanggal pilihan user ======
+            'tgl_kembali_asli': kembali.toIso8601String(),
             'kondisi_akhir': kondisiTerpilih,
             'denda_terlambat': 0,
             'biaya_kerusakan': 0,
@@ -191,6 +217,30 @@ class _PengembalianPageState extends State<PengembalianPage> {
                 children: [
                   _buildInfoCardReal(),
                   const SizedBox(height: 20),
+
+                  // ====== NEW SECTION: pilih tanggal pengembalian ======
+                  _buildSectionContainer(
+                    title: "Tanggal Pengembalian",
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_month),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _fmtDateFromDt(tglKembaliDipilih),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: _pilihTanggalKembali,
+                          style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
+                          child: const Text("Pilih", style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
                   _buildSectionContainer(
                     title: "Kondisi Saat Dikembalikan",
                     child: Column(
@@ -223,11 +273,13 @@ class _PengembalianPageState extends State<PengembalianPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+
                   _buildSectionContainer(
                     title: "Denda Keterlambatan",
                     child: _buildDendaTelatPreview(),
                   ),
                   const SizedBox(height: 30),
+
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -298,20 +350,13 @@ class _PengembalianPageState extends State<PengembalianPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  merk,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
+                Text(merk, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 Text("ID Alat: $idAlat", style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 6),
-                Text(
-                  "Tgl Pinjam: $tglPinjam",
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                Text(
-                  "Rencana Kembali: $tglRencana",
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
+                Text("Tgl Pinjam: $tglPinjam",
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text("Rencana Kembali: $tglRencana",
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),
@@ -324,7 +369,9 @@ class _PengembalianPageState extends State<PengembalianPage> {
     if (pinjamAktif == null) {
       return const Text("Tidak ada peminjaman aktif.");
     }
-    final telat = _telatHari(pinjamAktif!['tgl_kembali_rencana']);
+
+    final kembali = tglKembaliDipilih ?? DateTime.now();
+    final telat = _telatHari(pinjamAktif!['tgl_kembali_rencana'], kembali);
     final total = telat * 10000;
 
     return Column(
@@ -345,10 +392,8 @@ class _PengembalianPageState extends State<PengembalianPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              "Total Denda",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+            const Text("Total Denda",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             Text(
               _rp(total),
               style: const TextStyle(
@@ -380,10 +425,8 @@ class _PengembalianPageState extends State<PengembalianPage> {
                 topRight: Radius.circular(15),
               ),
             ),
-            child: Text(
-              title,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+            child: Text(title,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
           Padding(padding: const EdgeInsets.all(15), child: child),
         ],

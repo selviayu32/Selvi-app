@@ -10,7 +10,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
 
   // Fungsi untuk menentukan warna UI berdasarkan status transaksi
   Color getStatusColor(String status) {
-    if (status.toLowerCase() == "disetujui") return Colors.green;
+    if (status.toLowerCase() == "disetujui") return Colors.green; // STATUS BILA DI SETUJUI 
     if (status.toLowerCase() == "ditolak") return Colors.red;
     return Colors.orange; // Untuk status 'menunggu'
   }
@@ -25,13 +25,13 @@ class KonfirmasiPetugasPage extends StatelessWidget {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, false), // UNTUK MEMBATALKAN PERINTAH PEMINJAMAN 
             child: const Text("Batal", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: btnColor),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Ya", style: TextStyle(color: Colors.white)),
+            child: const Text("Ya", style: TextStyle(color: Colors.white)), //UNTUK MELANJUTKAN PERINTAH PEMINJAMAN KE HALAMAN SELANJUTNYA 
           ),
         ],
       ),
@@ -40,14 +40,14 @@ class KonfirmasiPetugasPage extends StatelessWidget {
   }
 
   // Fungsi Update Status: Mengubah status di DB dan mengirim notifikasi ke user
-  Future<void> _updateStatus(
+  Future<void> _updateStatus( //UNTUK MENGUPDATE STATUS PEMINJAMAN DARI PETUGAS KE DATABASE 
     BuildContext context, {
     required String idPermintaan,
     required String statusBaru,
     required String userIdPeminjam,
     required String merkAlat,
   }) async {
-    final bool ok = await _confirm(
+    final bool ok = await _confirm(// MENAMPILKAN DI ALOG KONFIRMASI SETELAH PETUGAS KLIK TOMBOL SETUJUI ATAU TOLAK
       context,
       statusBaru == 'disetujui' ? "Setujui Permintaan?" : "Tolak Permintaan?",
       "Yakin ingin ${statusBaru == 'disetujui' ? 'MENYETUJUI' : 'MENOLAK'} peminjaman:\n\n• $merkAlat",
@@ -58,14 +58,14 @@ class KonfirmasiPetugasPage extends StatelessWidget {
 
     try {
       // Step 1: Update status pada tabel permintaan peminjaman
-      await supabase
+      await supabase // UNTUK MENGUPDATE DATA DI TABEL PERMINTAAN BERDASRKAN ID PERMINTAAN 
           .from('permintaan')
           .update({'status': statusBaru})
           .eq('id_permintaan', idPermintaan);
 
       // Step 2: Masukkan pesan ke tabel notifikasi agar bisa dibaca oleh Peminjam
       await supabase.from('notifications').insert({
-        'user_id': userIdPeminjam,
+        'user_id': userIdPeminjam, //UNTUK MENGIRIM NOTIFIKASI KE PEMINJAM BERDASARKAN USER ID  YANG TADI MEMEINJAM 
         'title': 'Status Peminjaman',
         'message': statusBaru == 'disetujui'
             ? 'Permintaan peminjaman $merkAlat telah DISETUJUI petugas.'
@@ -131,7 +131,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
           if (data.isEmpty) {
             return const Center(
               child: Text(
-                "Belum ada permintaan.",
+                "Belum ada permintaan.", //JIKA TIDAK ADA PERMINTAAN YANG AKAN DI KONFIRMASI 
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
               ),
@@ -139,7 +139,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
           }
 
           // Logika Filter: Hanya menampilkan permintaan yang statusnya 'menunggu'
-          final dataMenunggu = data.where((x) {
+          final dataMenunggu = data.where((x) { // UNTUK MENAMPILKAN DATA YANG BERSTATUS MEUNGGU SAJA YANG LAIN TIDAK TAMPIL
             final s = (x['status'] ?? '').toString().toLowerCase().trim();
             return s.contains('menunggu');
           }).toList();
@@ -148,7 +148,7 @@ class KonfirmasiPetugasPage extends StatelessWidget {
           if (dataMenunggu.isEmpty) {
             return const Center(
               child: Text(
-                "Tidak ada permintaan yang perlu dikonfirmasi.",
+                "Tidak ada permintaan yang perlu dikonfirmasi.", //MENGKONFIRMASI JIKA SELESAI DI PROSES JADI TIDAK ADA YANG PERLU DI KONFIRMASI 
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
               ),
@@ -159,9 +159,9 @@ class KonfirmasiPetugasPage extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             itemCount: dataMenunggu.length,
             itemBuilder: (context, i) {
-              final item = dataMenunggu[i];
+              final item = dataMenunggu[i]; //MENGAMBIL DATA YANG BERTATUS MENUNGGU
 
-              final String idPermintaan = item['id_permintaan'].toString();
+              final String idPermintaan = item['id_permintaan'].toString(); //MEMPROSES AGAR MEENGGANTI JADI SETUJU
               final String status = (item['status'] ?? 'menunggu').toString();
               final String userIdPeminjam = item['id_user'].toString();
 
