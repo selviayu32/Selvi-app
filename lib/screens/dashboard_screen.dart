@@ -16,6 +16,8 @@ import 'keranjang_page.dart';
 
 import 'data_petugas_screen.dart';
 // IMPORT HALAMAN DATA PETUGAS (UNTUK ADMIN)
+import 'data_peminjam_admin_page.dart';
+import 'admin_riwayat_page.dart';
 
 import 'status_page.dart';
 // IMPORT HALAMAN STATUS PEMINJAMAN (UNTUK PEMINJAM)
@@ -25,6 +27,9 @@ import 'konfirmasi_petugas_page.dart';
 
 // ✅ TAMBAHAN: HALAMAN PENGEMBALIAN PEMINJAM
 import 'pengembalian_page.dart';
+
+// ✅ NEW: HALAMAN RIWAYAT/CEK PENGEMBALIAN PETUGAS
+import 'riwayat_pengembalian_petugas_page.dart';
 
 // =====================================================
 // KONFIGURASI WARNA UTAMA APLIKASI (BIAR KONSISTEN)
@@ -121,15 +126,13 @@ class AdminDashboard extends StatelessWidget {
                     context,
                     "Data Peminjam",
                     Icons.people,
-                    null,
-                    // NULL = BELUM ADA HALAMAN, JADI TIDAK BISA DIKLIK
+                    const DataPeminjamAdminPage(),
                   ),
                   _buildMenuCard(
                     context,
                     "Riwayat",
                     Icons.history,
-                    null,
-                    // NULL = BELUM ADA HALAMAN
+                    const AdminRiwayatPage(),
                   ),
                 ],
               ),
@@ -252,8 +255,8 @@ class PetugasDashboard extends StatelessWidget {
                   "Pengembalian",
                   Icons.keyboard_return,
                   "Update Status",
-                  null,
-                  // NULL = BELUM ADA HALAMAN
+                  const RiwayatPengembalianPetugasPage(),
+                  // ✅ DULU NULL, SEKARANG BUKA HALAMAN PETUGAS (CEK & RIWAYAT)
                 ),
                 _buildModernMenuCard(
                   context,
@@ -576,9 +579,9 @@ class PeminjamDashboard extends StatelessWidget {
 // - Tujuan: user bisa lihat barang apa saja yang SUDAH dikembalikan
 // - Aman: tidak mengubah fitur lain, hanya tambahan page
 // - Cara filter:
-//   1) Ambil auth.uid
-//   2) Map ke users.id_user lewat users.auth_id
-//   3) Ambil pengembalian join permintaan -> alat
+//   1) Ambil auth.uid (UUID)
+//   2) Query pengembalian join permintaan (inner)
+//   3) Filter langsung di server: permintaan.id_user = auth.uid
 // =====================================================
 class RiwayatPengembalianPage extends StatefulWidget {
   const RiwayatPengembalianPage({super.key});
@@ -616,34 +619,21 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
         return;
       }
 
-      // 1) map auth_id(UUID) -> users.id_user (INT)
-      final u = await supabase.from('users').select('id_user').eq('auth_id', user.id).single();
-      final int userIntId = u['id_user'];
-
-      // 2) ambil riwayat pengembalian (join ke permintaan & alat)
-      // Catatan:
-      // - pengembalian.id_pinjam mengarah ke permintaan.id_permintaan (sesuai kode kamu)
-      // - permintaan.id_alat sudah ada FK ke alat (permintaan_id_alat_fkey)
+      // Ambil riwayat pengembalian milik user login berbasis auth.uid UUID.
       final res = await supabase
           .from('pengembalian')
           .select(
             'id_kembali, id_pinjam, tgl_kembali_asli, kondisi_akhir, denda_terlambat, '
-            'permintaan:permintaan!pengembalian_id_pinjam_fkey(id_permintaan, id_user, id_alat, tgl_pinjam, tgl_kembali_rencana, '
+            'permintaan:permintaan!pengembalian_id_pinjam_fkey!inner(id_permintaan, id_user, id_alat, tgl_pinjam, tgl_kembali_rencana, '
             'alat:alat!permintaan_id_alat_fkey(merk, image_url))',
           )
+          .eq('permintaan.id_user', user.id)
           .order('tgl_kembali_asli', ascending: false);
 
-      final list = (res is List) ? res.cast<Map<String, dynamic>>() : <Map<String, dynamic>>[];
-
-      // 3) filter di client: hanya milik user ini
-      final filtered = list.where((row) {
-        final p = row['permintaan'] as Map<String, dynamic>?;
-        if (p == null) return false;
-        return p['id_user'] == userIntId;
-      }).toList();
+      final list = (res as List).cast<Map<String, dynamic>>();
 
       setState(() {
-        items = filtered;
+        items = list;
         loading = false;
       });
     } catch (e) {
@@ -855,8 +845,8 @@ AppBar _buildAppBar(
       StreamBuilder<List<Map<String, dynamic>>>(
         stream: supabase
             .from('users') // KALO NAMA TABEL BEDA, GANTI DI SINI
-            .stream(primaryKey: ['id'])
-            .eq('id', user?.id ?? ''),
+            .stream(primaryKey: ['id_user'])
+            .eq('auth_id', user?.id ?? ''),
         builder: (context, snap) {
           // AMBIL DATA USER (MAP) ATAU MAP KOSONG BIAR GA CRASH
           final fullUserData = (snap.hasData && snap.data!.isNotEmpty) ? snap.data!.first : <String, dynamic>{};

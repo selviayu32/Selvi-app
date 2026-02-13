@@ -14,11 +14,18 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
   bool loading = true;
   String? errorMsg;
 
-  /// items gabungan: { permintaan: {...}, pengembalian: {...} atau null }
+  /// item: {permintaan: {...}, pengembalian: {...} | null}
   List<Map<String, dynamic>> items = [];
 
   static const Color primaryBlue = Color(0xFF5371A5);
   static const Color backgroundBlue = Color(0xFFAECBFA);
+  static const List<String> _targetStatuses = [
+    'menunggu',
+    'disetujui',
+    'ditolak',
+    'pengembalian_diajukan',
+    'dikembalikan',
+  ];
 
   @override
   void initState() {
@@ -27,73 +34,116 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
   }
 
   String _fmtDate(dynamic iso) {
-    if (iso == null) return "-";
+    if (iso == null) return '-';
     final s = iso.toString();
     return s.length >= 10 ? s.substring(0, 10) : s;
   }
 
-  Future<int?> _tryGetUserIntIdFromAuth() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return null;
-
-    // users.auth_id (uuid) -> users.id_user (int)
-    final row = await supabase.from('users').select('id_user').eq('auth_id', user.id).maybeSingle();
-    if (row == null) return null;
-    return (row['id_user'] as num).toInt();
+  num _toNum(dynamic value) {
+    if (value is num) return value;
+    return num.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  Future<List<Map<String, dynamic>>> _fetchPermintaanByUserUuid(String authUid) async {
-    final res = await supabase.from('permintaan').select('''
-      id_permintaan,
-      id_user,
-      id_alat,
-      tgl_pinjam,
-      tgl_kembali_rencana,
-      status,
-      created_at,
-      alat:alat!permintaan_id_alat_fkey(
-        id_alat,
-        merk,
-        image_url
-      )
-    ''').eq('id_user', authUid).order('tgl_pinjam', ascending: false);
+  Future<List<Map<String, dynamic>>> _fetchPermintaanByAuthUid(String authUid) async {
+    final res = await supabase
+        .from('permintaan')
+        .select('''
+          id_permintaan,
+          id_user,
+          id_alat,
+          tgl_pinjam,
+          tgl_kembali_rencana,
+          status,
+          created_at
+        ''')
+        .eq('id_user', authUid)
+        .inFilter('status', _targetStatuses)
+        .order('created_at', ascending: false);
 
-    if (res is! List) return [];
-    return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final rows = res as List;
+    return rows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
-  Future<List<Map<String, dynamic>>> _fetchPermintaanByUserInt(int userIntId) async {
-    final res = await supabase.from('permintaan').select('''
-      id_permintaan,
-      id_user,
-      id_alat,
-      tgl_pinjam,
-      tgl_kembali_rencana,
-      status,
-      created_at,
-      alat:alat!permintaan_id_alat_fkey(
-        id_alat,
-        merk,
-        image_url
-      )
-    ''').eq('id_user', userIntId).order('tgl_pinjam', ascending: false);
+  Future<Map<int, Map<String, dynamic>>> _fetchAlatByIds(List<int> ids) async {
+    if (ids.isEmpty) return {};
+    try {
+      final res = await supabase
+          .from('alat')
+          .select('id_alat, merk, image_url')
+          .inFilter('id_alat', ids);
 
-    if (res is! List) return [];
-    return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final rows = (res as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final map = <int, Map<String, dynamic>>{};
+      for (final row in rows) {
+        final raw = row['id_alat'];
+        if (raw is! num) continue;
+        map[raw.toInt()] = row;
+      }
+      return map;
+    } on PostgrestException catch (e) {
+      debugPrint(
+        '[RiwayatPengembalianPage] SELECT alat gagal (kemungkinan RLS). code=${e.code}, message=${e.message}',
+      );
+      return {};
+    }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchPengembalian() async {
-    final res = await supabase.from('pengembalian').select('''
-      id_kembali,
-      id_pinjam,
-      tgl_kembali_asli,
-      kondisi_akhir,
-      denda_terlambat,
-      catatan_petugas
-    ''').order('tgl_kembali_asli', ascending: false);
+  Future<List<Map<String, dynamic>>> _fetchPengembalianByPermintaanIds(List<int> ids) async {
+    if (ids.isEmpty) return [];
 
-    if (res is! List) return [];
-    return res.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    try {
+      final res = await supabase
+          .from('pengembalian')
+          .select('''
+            id_kembali,
+            id_pinjam,
+            tgl_kembali_asli,
+            kondisi_akhir,
+            denda_terlambat,
+            biaya_kerusakan,
+            catatan_petugas,
+            created_at
+          ''')
+          .inFilter('id_pinjam', ids)
+          .order('created_at', ascending: false);
+
+      final rows = res as List;
+      return rows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on PostgrestException catch (e) {
+      debugPrint(
+        '[RiwayatPengembalianPage] SELECT pengembalian gagal (kemungkinan RLS). code=${e.code}, message=${e.message}',
+      );
+      return [];
+    }
+  }
+
+  Map<int, Map<String, dynamic>> _latestPengembalianMap(List<Map<String, dynamic>> rows) {
+    final map = <int, Map<String, dynamic>>{};
+
+    for (final row in rows) {
+      final idPinjamRaw = row['id_pinjam'];
+      if (idPinjamRaw is! num) continue;
+      final idPinjam = idPinjamRaw.toInt();
+
+      if (!map.containsKey(idPinjam)) {
+        map[idPinjam] = row;
+        continue;
+      }
+
+      final current = map[idPinjam]!;
+      final rowTime = DateTime.tryParse(row['tgl_kembali_asli']?.toString() ?? '') ??
+          DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final currentTime = DateTime.tryParse(current['tgl_kembali_asli']?.toString() ?? '') ??
+          DateTime.tryParse(current['created_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+
+      if (rowTime.isAfter(currentTime)) {
+        map[idPinjam] = row;
+      }
+    }
+
+    return map;
   }
 
   Future<void> _loadRiwayat() async {
@@ -105,40 +155,79 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
 
     try {
       final user = supabase.auth.currentUser;
-      if (user == null) throw Exception("User belum login");
+      if (user == null) throw Exception('User belum login');
 
       final authUid = user.id;
+      debugPrint('[RiwayatPengembalianPage] auth.uid=$authUid');
+      final permintaanRowsRaw = await _fetchPermintaanByAuthUid(authUid);
 
-      // 1) coba ambil permintaan pakai UUID dulu (paling umum kalau FK ke auth_id)
-      List<Map<String, dynamic>> permintaanList = await _fetchPermintaanByUserUuid(authUid);
+      final alatIds = permintaanRowsRaw
+          .map((e) => e['id_alat'])
+          .whereType<num>()
+          .map((e) => e.toInt())
+          .toSet()
+          .toList();
+      final alatById = await _fetchAlatByIds(alatIds);
+      final permintaanRows = permintaanRowsRaw.map((perm) {
+        final rawIdAlat = perm['id_alat'];
+        final idAlat = rawIdAlat is num ? rawIdAlat.toInt() : null;
+        return {
+          ...perm,
+          'alat': idAlat == null ? null : alatById[idAlat],
+        };
+      }).toList();
 
-      // 2) kalau kosong, fallback ke INT (kalau permintaan.id_user ternyata int)
-      if (permintaanList.isEmpty) {
-        final userIntId = await _tryGetUserIntIdFromAuth();
-        if (userIntId != null) {
-          permintaanList = await _fetchPermintaanByUserInt(userIntId);
+      final permintaanIds = permintaanRows
+          .map((e) => e['id_permintaan'])
+          .whereType<num>()
+          .map((e) => e.toInt())
+          .toList();
+
+      final pengembalianRows = await _fetchPengembalianByPermintaanIds(permintaanIds);
+      final latestPengembalian = _latestPengembalianMap(pengembalianRows);
+
+      final countByIdPinjam = <int, int>{};
+      for (final row in pengembalianRows) {
+        final idPinjamRaw = row['id_pinjam'];
+        if (idPinjamRaw is! num) continue;
+        final idPinjam = idPinjamRaw.toInt();
+        countByIdPinjam[idPinjam] = (countByIdPinjam[idPinjam] ?? 0) + 1;
+      }
+
+      debugPrint('[RiwayatPengembalianPage] sumber query user: permintaan.id_user = auth.uid ($authUid)');
+      debugPrint('[RiwayatPengembalianPage] jumlah permintaan: ${permintaanRows.length}');
+      for (int i = 0; i < permintaanRows.length && i < 3; i++) {
+        debugPrint('[RiwayatPengembalianPage] contoh permintaan[$i]: ${permintaanRows[i]}');
+      }
+      debugPrint('[RiwayatPengembalianPage] jumlah pengembalian: ${pengembalianRows.length}');
+      for (final idPermintaan in permintaanIds) {
+        final count = countByIdPinjam[idPermintaan] ?? 0;
+        debugPrint(
+          '[RiwayatPengembalianPage] id_permintaan=$idPermintaan, hasil select pengembalian=$count',
+        );
+        if (count == 0) {
+          debugPrint(
+            '[RiwayatPengembalianPage] WARNING: pengembalian tidak terbaca (kemungkinan RLS atau belum ada data)',
+          );
         }
       }
-
-      // 3) ambil pengembalian (kalau ada)
-      final pengembalianList = await _fetchPengembalian();
-
-      // Map pengembalian by id_pinjam (biasanya = id_permintaan)
-      final Map<String, Map<String, dynamic>> pengembalianByPinjam = {};
-      for (final p in pengembalianList) {
-        final key = (p['id_pinjam'] ?? '').toString();
-        if (key.isNotEmpty) pengembalianByPinjam[key] = p;
+      if (permintaanRows.isNotEmpty) {
+        debugPrint('[RiwayatPengembalianPage] contoh permintaan pertama: ${permintaanRows.first}');
+      }
+      if (pengembalianRows.isNotEmpty) {
+        debugPrint('[RiwayatPengembalianPage] contoh pengembalian pertama: ${pengembalianRows.first}');
       }
 
-      // Gabungkan permintaan + pengembalian
-      final merged = <Map<String, dynamic>>[];
-      for (final perm in permintaanList) {
-        final idPermintaan = (perm['id_permintaan'] ?? '').toString();
-        merged.add({
-          'permintaan': perm,
-          'pengembalian': pengembalianByPinjam[idPermintaan], // bisa null
-        });
-      }
+      final merged = permintaanRows
+          .map((perm) {
+            final idPermintaanRaw = perm['id_permintaan'];
+            final idPermintaan = idPermintaanRaw is num ? idPermintaanRaw.toInt() : null;
+            return {
+              'permintaan': perm,
+              'pengembalian': idPermintaan == null ? null : latestPengembalian[idPermintaan],
+            };
+          })
+          .toList();
 
       setState(() {
         items = merged;
@@ -154,27 +243,24 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
 
   String _chipText(Map<String, dynamic> item) {
     final permintaan = item['permintaan'] as Map<String, dynamic>?;
-    final pengembalian = item['pengembalian'] as Map<String, dynamic>?;
-
-    if (pengembalian != null) return 'Di Kembalikan';
-
     final status = (permintaan?['status'] ?? '').toString().toLowerCase();
+
     if (status == 'menunggu') return 'Menunggu';
-    if (status == 'disetujui') return 'Di Pinjam';
-    if (status == 'ditolak') return 'Di Tolak';
-    if (status == 'pengembalian_diajukan') return 'Menunggu Dikembalikan';
-    if (status == 'dikembalikan' || status == 'selesai') return 'Di Kembalikan';
+    if (status == 'disetujui') return 'Disetujui';
+    if (status == 'ditolak') return 'Ditolak';
+    if (status == 'pengembalian_diajukan') return 'Pengembalian Diajukan';
+    if (status == 'dikembalikan') return 'Dikembalikan';
 
     return status.isEmpty ? 'Status' : status;
   }
 
   Color _chipColor(String chip) {
     final s = chip.toLowerCase();
-    if (s.contains('tolak')) return Colors.red;
-    if (s.contains('menunggu dikembalikan')) return Colors.blueGrey;
+    if (s.contains('ditolak')) return Colors.red;
+    if (s.contains('pengembalian diajukan')) return Colors.blueGrey;
     if (s.contains('menunggu')) return Colors.orange;
-    if (s.contains('pinjam')) return Colors.green;
-    if (s.contains('kembalikan') || s.contains('selesai')) return Colors.blue;
+    if (s.contains('disetujui')) return Colors.green;
+    if (s.contains('dikembalikan')) return Colors.blue;
     return Colors.grey;
   }
 
@@ -187,7 +273,7 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
       buf.write(chars[i]);
       if (left > 1 && left % 3 == 1) buf.write('.');
     }
-    return "Rp $buf";
+    return 'Rp $buf';
   }
 
   @override
@@ -196,14 +282,14 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
       backgroundColor: backgroundBlue,
       appBar: AppBar(
         backgroundColor: primaryBlue,
-        title: const Text("Riwayat Pengembalian", style: TextStyle(color: Colors.white)),
+        title: const Text('Riwayat Pengembalian', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
         actions: [
           IconButton(
             onPressed: _loadRiwayat,
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: "Refresh",
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -226,7 +312,7 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
 
   Widget _buildEmpty() {
     return const Center(
-      child: Text("Belum ada riwayat pengembalian.", style: TextStyle(fontSize: 16)),
+      child: Text('Belum ada riwayat pengembalian.', style: TextStyle(fontSize: 16)),
     );
   }
 
@@ -237,11 +323,11 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("Gagal ambil data.\n$errorMsg", textAlign: TextAlign.center),
+            Text('Gagal ambil data.\n$errorMsg', textAlign: TextAlign.center),
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _loadRiwayat,
-              child: const Text("Coba Lagi"),
+              child: const Text('Coba Lagi'),
             ),
           ],
         ),
@@ -262,7 +348,9 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
     final tglRencana = _fmtDate(permintaan?['tgl_kembali_rencana']);
 
     final tglKembaliAsli = _fmtDate(pengembalian?['tgl_kembali_asli']);
-    final denda = (pengembalian?['denda_terlambat'] ?? 0) as num;
+    final dendaTerlambat = _toNum(pengembalian?['denda_terlambat']);
+    final biayaKerusakan = _toNum(pengembalian?['biaya_kerusakan']);
+    final totalDenda = dendaTerlambat + biayaKerusakan;
 
     final chip = _chipText(item);
     final chipColor = _chipColor(chip);
@@ -280,7 +368,12 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
               height: 70,
               color: Colors.grey[200],
               child: imageUrl.isNotEmpty
-                  ? Image.network(imageUrl, fit: BoxFit.cover)
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.keyboard, size: 36, color: Colors.grey),
+                    )
                   : const Icon(Icons.keyboard, size: 36, color: Colors.grey),
             ),
           ),
@@ -291,18 +384,29 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
               children: [
                 Text(merk, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text("Pinjam: $tglPinjam  •  Rencana: $tglRencana",
-                    style: const TextStyle(color: Colors.grey)),
+                Text(
+                  'Pinjam: $tglPinjam - Rencana: $tglRencana',
+                  style: const TextStyle(color: Colors.grey),
+                ),
                 const SizedBox(height: 2),
                 Text(
-                  pengembalian == null ? "Belum ada pengembalian" : "Kembali: $tglKembaliAsli",
+                  pengembalian == null ? 'Belum ada pengembalian' : 'Kembali: $tglKembaliAsli',
                   style: const TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  pengembalian == null ? "Denda: -" : "Denda: ${_rp(denda)}",
+                  pengembalian == null
+                      ? 'Denda terlambat: - | Kerusakan: -'
+                      : 'Denda terlambat: ${_rp(dendaTerlambat)} | Kerusakan: ${_rp(biayaKerusakan)}',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
+                if (pengembalian != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Total Denda: ${_rp(totalDenda)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
               ],
             ),
           ),

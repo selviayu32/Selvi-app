@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_application_1/screens/dashboard_screen.dart';
 
 // Inisialisasi instance Supabase untuk melakukan query ke database
 final supabase = Supabase.instance.client;
@@ -178,7 +179,13 @@ class _StatusPageState extends State<StatusPage> {
         backgroundColor: Colors.blue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const PeminjamDashboard()),
+              (route) => false,
+            );
+          },
         ),
       ),
 

@@ -47,17 +47,17 @@ class _PengembalianPageState extends State<PengembalianPage> {
           .from('permintaan')
           .select(
             'id_permintaan, id_alat, tgl_pinjam, tgl_kembali_rencana, status, '
-            'alat:alat!permintaan_id_alat_fkey(merk, image_url), '
-            'u:users!fk_permintaan_users(auth_id)',
+            'alat:alat!permintaan_id_alat_fkey(merk, image_url)',
           )
-          .eq('status', 'disetujui')
-          .eq('u.auth_id', authUid)
+          .inFilter('status', ['disetujui', 'dipinjam'])
+          .eq('id_user', authUid)
           .order('tgl_pinjam', ascending: false)
           .limit(1);
 
+      final rows = (res as List).cast<Map<String, dynamic>>();
+
       setState(() {
-        pinjamAktif =
-            (res is List && res.isNotEmpty) ? (res.first as Map<String, dynamic>) : null;
+        pinjamAktif = rows.isNotEmpty ? rows.first : null;
 
         // ====== NEW: default tanggal kembali = hari ini ======
         tglKembaliDipilih ??= DateTime.now();
@@ -137,7 +137,8 @@ class _PengembalianPageState extends State<PengembalianPage> {
   Future<void> _ajukanPengembalian() async {
     if (pinjamAktif == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Tidak ada peminjaman aktif untuk dikembalikan.")),
+        const SnackBar(
+            content: Text("Tidak ada peminjaman aktif untuk dikembalikan.")),
       );
       return;
     }
@@ -154,37 +155,64 @@ class _PengembalianPageState extends State<PengembalianPage> {
     setState(() => submitting = true);
 
     try {
-      final idPermintaan = pinjamAktif!['id_permintaan'];
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('User belum login');
+      }
+
+      final rawIdPermintaan = pinjamAktif!['id_permintaan'];
+      final int? idPermintaan = rawIdPermintaan is num
+          ? rawIdPermintaan.toInt()
+          : int.tryParse(rawIdPermintaan.toString());
+      if (idPermintaan == null) {
+        throw Exception('ID permintaan tidak valid');
+      }
 
       final telat = _telatHari(pinjamAktif!['tgl_kembali_rencana'], kembali);
       final previewDenda = telat * 10000;
 
-      final inserted = await supabase
+      debugPrint(
+        '[PengembalianPage] Ajukan pengembalian id_permintaan=$idPermintaan auth.uid=${supabase.auth.currentUser?.id} tgl_kembali_asli=${kembali.toIso8601String()}',
+      );
+
+      final permintaanAktif = await supabase
+          .from('permintaan')
+          .select('id_permintaan, id_user, status')
+          .eq('id_permintaan', idPermintaan)
+          .eq('id_user', user.id)
+          .inFilter('status', ['disetujui', 'dipinjam'])
+          .maybeSingle();
+      if (permintaanAktif == null) {
+        throw Exception('Permintaan aktif tidak ditemukan');
+      }
+
+      final existingPengembalian = await supabase
           .from('pengembalian')
-          .insert({
-            'id_pinjam': idPermintaan,
-            // ====== UPDATED: pakai tanggal pilihan user ======
-            'tgl_kembali_asli': kembali.toIso8601String(),
-            'kondisi_akhir': kondisiTerpilih,
-            'denda_terlambat': 0,
-            'biaya_kerusakan': 0,
-            'catatan_petugas': _catatanController.text.trim().isEmpty
-                ? null
-                : _catatanController.text.trim(),
-          })
-          .select()
-          .single();
+          .select('id_kembali')
+          .eq('id_pinjam', idPermintaan)
+          .maybeSingle();
+      if (existingPengembalian == null) {
+        await supabase.from('pengembalian').insert({
+          'id_pinjam': idPermintaan,
+          'tgl_kembali_asli': kembali.toIso8601String(),
+          'kondisi_akhir': kondisiTerpilih,
+        });
+      } else {
+        await supabase.from('pengembalian').update({
+          'tgl_kembali_asli': kembali.toIso8601String(),
+          'kondisi_akhir': kondisiTerpilih,
+        }).eq('id_pinjam', idPermintaan);
+      }
 
       await supabase
           .from('permintaan')
           .update({'status': 'pengembalian_diajukan'})
-          .eq('id_permintaan', idPermintaan);
-
-      final dendaFinal = (inserted['denda_terlambat'] ?? previewDenda) as num;
+          .eq('id_permintaan', idPermintaan)
+          .eq('id_user', user.id);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Pengembalian diajukan. Denda: ${_rp(dendaFinal)}")),
+        SnackBar(content: Text("Pengembalian diajukan. Estimasi denda: ${_rp(previewDenda)}")),
       );
 
       Navigator.pop(context, true);
@@ -204,7 +232,8 @@ class _PengembalianPageState extends State<PengembalianPage> {
     return Scaffold(
       backgroundColor: backgroundBlue,
       appBar: AppBar(
-        title: const Text("Pengembalian Alat", style: TextStyle(color: Colors.white)),
+        title:
+            const Text("Pengembalian Alat", style: TextStyle(color: Colors.white)),
         backgroundColor: primaryBlue,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -233,8 +262,10 @@ class _PengembalianPageState extends State<PengembalianPage> {
                         ),
                         ElevatedButton(
                           onPressed: _pilihTanggalKembali,
-                          style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
-                          child: const Text("Pilih", style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryBlue),
+                          child: const Text("Pilih",
+                              style: TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -245,9 +276,12 @@ class _PengembalianPageState extends State<PengembalianPage> {
                     title: "Kondisi Saat Dikembalikan",
                     child: Column(
                       children: [
-                        _buildRadioOption("Baik", Icons.check_circle, Colors.green),
-                        _buildRadioOption("Rusak Ringan", Icons.warning, Colors.orange),
-                        _buildRadioOption("Rusak Berat", Icons.cancel, Colors.red),
+                        _buildRadioOption(
+                            "Baik", Icons.check_circle, Colors.green),
+                        _buildRadioOption(
+                            "Rusak Ringan", Icons.warning, Colors.orange),
+                        _buildRadioOption(
+                            "Rusak Berat", Icons.cancel, Colors.red),
                         const SizedBox(height: 10),
                         const Align(
                           alignment: Alignment.centerLeft,
@@ -316,7 +350,8 @@ class _PengembalianPageState extends State<PengembalianPage> {
     if (pinjamAktif == null) {
       return Container(
         padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+        decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(15)),
         child: const Text("Tidak ada peminjaman aktif untuk dikembalikan."),
       );
     }
@@ -331,7 +366,8 @@ class _PengembalianPageState extends State<PengembalianPage> {
 
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+      decoration:
+          BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
       child: Row(
         children: [
           ClipRRect(
@@ -350,7 +386,9 @@ class _PengembalianPageState extends State<PengembalianPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(merk, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(merk,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18)),
                 Text("ID Alat: $idAlat", style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 6),
                 Text("Tgl Pinjam: $tglPinjam",
@@ -382,7 +420,9 @@ class _PengembalianPageState extends State<PengembalianPage> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                telat == 0 ? "Tidak terlambat" : "Telat $telat hari (Rp 10.000 x $telat)",
+                telat == 0
+                    ? "Tidak terlambat"
+                    : "Telat $telat hari (Rp 10.000 x $telat)",
               ),
             ),
             Text(_rp(total), style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -411,7 +451,8 @@ class _PengembalianPageState extends State<PengembalianPage> {
   Widget _buildSectionContainer({required String title, required Widget child}) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+      decoration:
+          BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -426,7 +467,8 @@ class _PengembalianPageState extends State<PengembalianPage> {
               ),
             ),
             child: Text(title,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
           ),
           Padding(padding: const EdgeInsets.all(15), child: child),
         ],
@@ -449,3 +491,4 @@ class _PengembalianPageState extends State<PengembalianPage> {
     );
   }
 }
+

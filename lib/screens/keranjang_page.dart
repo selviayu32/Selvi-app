@@ -230,12 +230,17 @@ class _KeranjangPageState extends State<KeranjangPage> {
 
     setState(() => isLoading = true);
     try {
+      final idUserUntukPermintaan = user.id;
+      debugPrint('[KeranjangPage] auth.uid=${user.id}');
+      debugPrint('[KeranjangPage] id_user payload untuk permintaan=$idUserUntukPermintaan');
+
       final keranjangData = await supabase.from('keranjang').select().eq('id_user', user.id);
 
       // Looping: Memasukkan setiap item di keranjang ke tabel permintaan peminjaman
       for (var item in keranjangData) {
+        debugPrint('[KeranjangPage] INSERT permintaan id_alat=${item['id_alat']} id_user=$idUserUntukPermintaan');
         await supabase.from('permintaan').insert({
-          'id_user': user.id,
+          'id_user': idUserUntukPermintaan,
           'id_alat': item['id_alat'],
           'status': 'menunggu', // Status awal adalah menunggu konfirmasi petugas
           'tgl_pinjam': tglPinjam.toIso8601String(),
